@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import Link from 'next/link'
+import ImportTranscriptModal from '@/components/ImportTranscriptModal'
 
 function formatDuration(secs: number) {
   if (secs < 60) return `${secs}s`
@@ -32,7 +33,10 @@ export default async function MeetingsPage({ searchParams }: { searchParams: Pro
     <div className="p-8 max-w-4xl mx-auto">
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-semibold text-white">Reuniões</h1>
-        <span className="text-sm text-neutral-500">{meetings?.length ?? 0} encontradas</span>
+        <div className="flex items-center gap-3">
+          <span className="text-sm text-neutral-500">{meetings?.length ?? 0} encontradas</span>
+          <ImportTranscriptModal />
+        </div>
       </div>
 
       {/* Busca */}
