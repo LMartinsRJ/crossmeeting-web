@@ -59,12 +59,73 @@ export default async function BriefingPage() {
       .limit(6),
     supabase
       .from('calendar_events')
-      .select('id, title, start_at, end_at, meeting_link, attendees, provider')
+      .select('id, title, start_at, end_at, meeting_link, attendees, provider, recurring_event_id')
       .gte('start_at', todayIso)
       .lte('start_at', in7Days.toISOString())
       .order('start_at', { ascending: true })
       .limit(10),
   ])
+
+  // Detecta reuniões recorrentes entre os próximos eventos e busca a última gravação de cada
+  const recurringUpcoming = (upcomingEvents ?? []).filter(e => e.recurring_event_id)
+  const recurringContexts: {
+    eventTitle: string
+    eventStart: string
+    meeting: { id: number; title: string; created_at: string; enhancement: string | null }
+    pendingActions: { text: string; owner?: string; due?: string }[]
+    resolvedActions: { text: string; owner?: string }[]
+  }[] = []
+
+  // Para cada recorrente único (por recurring_event_id), busca a última reunião gravada com título similar
+  const seenRecurring = new Set<string>()
+  for (const ev of recurringUpcoming) {
+    const key = ev.recurring_event_id as string
+    if (seenRecurring.has(key)) continue
+    seenRecurring.add(key)
+
+    // Busca a última reunião gravada com título similar (últimos 60 dias)
+    const titleWords = ev.title.toLowerCase().split(/\s+/).filter((w: string) => w.length > 3)
+    const searchTerm = titleWords.slice(0, 3).join(' & ')
+    const since60 = new Date(today); since60.setDate(since60.getDate() - 60)
+
+    const { data: matchedMeetings } = await supabase
+      .from('meetings')
+      .select('id, title, created_at, enhancement')
+      .ilike('title', `%${titleWords[0] ?? ev.title}%`)
+      .gte('created_at', since60.toISOString())
+      .lt('created_at', todayIso)
+      .order('created_at', { ascending: false })
+      .limit(1)
+
+    const lastMeeting = matchedMeetings?.[0]
+    if (!lastMeeting) continue
+
+    // Extrai ações da enhancement
+    let allActions: { text: string; owner?: string; due?: string }[] = []
+    try {
+      const enh = lastMeeting.enhancement ? JSON.parse(lastMeeting.enhancement) : null
+      allActions = Array.isArray(enh?.actionItems) ? enh.actionItems : []
+    } catch {}
+
+    // Busca action_items resolvidos (done_at não nulo) desta reunião
+    const { data: doneItems } = await supabase
+      .from('action_items')
+      .select('text, owner, done_at')
+      .eq('meeting_id', lastMeeting.id)
+      .not('done_at', 'is', null)
+
+    const resolvedTexts = new Set((doneItems ?? []).map((d: any) => d.text))
+    const pendingActions = allActions.filter(a => !resolvedTexts.has(a.text))
+    const resolvedActions = (doneItems ?? []).map((d: any) => ({ text: d.text, owner: d.owner }))
+
+    recurringContexts.push({
+      eventTitle: ev.title,
+      eventStart: ev.start_at,
+      meeting: lastMeeting,
+      pendingActions,
+      resolvedActions,
+    })
+  }
 
   const todayCount = todayMeetings?.length ?? 0
   const todaySecs = (todayMeetings ?? []).reduce((acc, m) => acc + (m.duration_seconds ?? 0), 0)
@@ -216,6 +277,88 @@ export default async function BriefingPage() {
                 )
               })
             )}
+          </div>
+        </div>
+      )}
+
+      {/* Contexto de reuniões recorrentes */}
+      {recurringContexts.length > 0 && (
+        <div className="mb-6">
+          <div className="flex items-center gap-2 mb-3">
+            <h2 className="text-xs font-semibold text-neutral-500 uppercase tracking-wider">Reuniões recorrentes — contexto</h2>
+            <span className="text-[10px] bg-purple-500/10 text-purple-400 border border-purple-500/20 px-2 py-0.5 rounded-full">
+              {recurringContexts.length} série{recurringContexts.length > 1 ? 's' : ''}
+            </span>
+          </div>
+          <div className="space-y-3">
+            {recurringContexts.map((ctx, i) => {
+              const lastDate = new Date(ctx.meeting.created_at).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })
+              const nextDate = new Date(ctx.eventStart).toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit', month: 'short' })
+              return (
+                <div key={i} className="bg-white/[0.03] border border-purple-500/10 rounded-2xl overflow-hidden">
+                  {/* Header */}
+                  <div className="flex items-center justify-between px-5 py-3.5 border-b border-white/[0.05]">
+                    <div>
+                      <p className="text-sm font-semibold text-white">{ctx.eventTitle}</p>
+                      <p className="text-xs text-neutral-600 mt-0.5">
+                        Próxima: <span className="text-neutral-400">{nextDate}</span>
+                        {' · '}Última gravação: <Link href={`/meetings/${ctx.meeting.id}`} className="text-[#6C8EFF] hover:opacity-80">{lastDate}</Link>
+                      </p>
+                    </div>
+                    <span className="text-[10px] bg-purple-500/10 text-purple-400 border border-purple-500/20 px-2 py-1 rounded-full shrink-0">Recorrente</span>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 divide-y md:divide-y-0 md:divide-x divide-white/[0.05]">
+                    {/* Pendentes */}
+                    <div className="px-5 py-4">
+                      <p className="text-[10px] font-semibold text-amber-400/80 uppercase tracking-wider mb-2.5">
+                        ⏳ Pendente da última reunião {ctx.pendingActions.length > 0 ? `(${ctx.pendingActions.length})` : ''}
+                      </p>
+                      {ctx.pendingActions.length === 0 ? (
+                        <p className="text-xs text-neutral-600">Nenhuma ação pendente — tudo resolvido!</p>
+                      ) : (
+                        <div className="space-y-2">
+                          {ctx.pendingActions.slice(0, 4).map((a, ai) => (
+                            <div key={ai} className="flex items-start gap-2">
+                              <span className="w-3.5 h-3.5 rounded border border-amber-500/30 shrink-0 mt-0.5" />
+                              <div className="min-w-0">
+                                <p className="text-xs text-neutral-300 leading-snug">{a.text}</p>
+                                {a.owner && <p className="text-[10px] text-neutral-600 mt-0.5">{a.owner}</p>}
+                              </div>
+                            </div>
+                          ))}
+                          {ctx.pendingActions.length > 4 && (
+                            <p className="text-[10px] text-neutral-700">+{ctx.pendingActions.length - 4} mais</p>
+                          )}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Resolvidos */}
+                    <div className="px-5 py-4">
+                      <p className="text-[10px] font-semibold text-green-400/80 uppercase tracking-wider mb-2.5">
+                        ✅ Resolvido desde a última vez {ctx.resolvedActions.length > 0 ? `(${ctx.resolvedActions.length})` : ''}
+                      </p>
+                      {ctx.resolvedActions.length === 0 ? (
+                        <p className="text-xs text-neutral-600">Nenhum item marcado como resolvido ainda.</p>
+                      ) : (
+                        <div className="space-y-2">
+                          {ctx.resolvedActions.slice(0, 4).map((a, ai) => (
+                            <div key={ai} className="flex items-start gap-2">
+                              <span className="text-green-500 text-xs shrink-0 mt-0.5">✓</span>
+                              <p className="text-xs text-neutral-500 line-through leading-snug">{a.text}</p>
+                            </div>
+                          ))}
+                          {ctx.resolvedActions.length > 4 && (
+                            <p className="text-[10px] text-neutral-700">+{ctx.resolvedActions.length - 4} mais</p>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )
+            })}
           </div>
         </div>
       )}
