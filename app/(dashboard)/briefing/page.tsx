@@ -34,7 +34,12 @@ export default async function BriefingPage() {
   const last7Start = new Date(today)
   last7Start.setDate(last7Start.getDate() - 7)
 
-  const [{ data: todayMeetings }, { data: recentMeetings }, { data: recentContacts }] = await Promise.all([
+  const tomorrow = new Date(today)
+  tomorrow.setDate(tomorrow.getDate() + 1)
+  const in7Days = new Date(today)
+  in7Days.setDate(in7Days.getDate() + 7)
+
+  const [{ data: todayMeetings }, { data: recentMeetings }, { data: recentContacts }, { data: upcomingEvents }] = await Promise.all([
     supabase
       .from('meetings')
       .select('id, title, created_at, duration_seconds, word_count, enhancement, attendees')
@@ -53,6 +58,13 @@ export default async function BriefingPage() {
       .gte('last_seen', last7Start.toISOString())
       .order('last_seen', { ascending: false })
       .limit(6),
+    supabase
+      .from('calendar_events')
+      .select('id, title, start_at, end_at, meeting_link, attendees, provider')
+      .gte('start_at', todayIso)
+      .lte('start_at', in7Days.toISOString())
+      .order('start_at', { ascending: true })
+      .limit(10),
   ])
 
   const todayCount = todayMeetings?.length ?? 0
@@ -83,6 +95,50 @@ export default async function BriefingPage() {
         <h1 className="text-2xl font-semibold text-white">{greeting}, {firstName}</h1>
         <p className="text-sm text-neutral-500 mt-1 capitalize">{dateLabel}</p>
       </div>
+
+      {/* Próximas reuniões do calendário */}
+      {(upcomingEvents?.length ?? 0) > 0 && (
+        <div className="mb-8">
+          <h2 className="text-xs font-semibold text-neutral-500 uppercase tracking-wider mb-3">Próximas reuniões</h2>
+          <div className="space-y-2">
+            {upcomingEvents!.map(ev => {
+              const start = new Date(ev.start_at)
+              const end = new Date(ev.end_at)
+              const isToday = start >= today && start < tomorrow
+              const durationMin = Math.round((end.getTime() - start.getTime()) / 60000)
+              const attendees: { name: string; email: string }[] = Array.isArray(ev.attendees) ? ev.attendees : []
+              const providerIcon: Record<string, string> = { google: '📅', microsoft: '📆', granola: '🌾', zoom: '💙', teams: '🟦' }
+              return (
+                <div key={ev.id} className="flex items-start gap-4 bg-white/[0.03] border border-white/[0.06] rounded-2xl px-5 py-4">
+                  <div className="shrink-0 text-center min-w-[48px]">
+                    <p className="text-[10px] text-neutral-600 uppercase">{isToday ? 'hoje' : start.toLocaleDateString('pt-BR', { weekday: 'short' })}</p>
+                    <p className="text-sm font-semibold text-white">{start.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</p>
+                    <p className="text-[10px] text-neutral-700">{durationMin}min</p>
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm">{providerIcon[ev.provider] ?? '📋'}</span>
+                      <p className="text-sm font-medium text-white truncate">{ev.title}</p>
+                    </div>
+                    {attendees.length > 0 && (
+                      <p className="text-xs text-neutral-600 mt-0.5 truncate">
+                        {attendees.slice(0, 4).map(a => a.name || a.email).join(', ')}
+                        {attendees.length > 4 ? ` +${attendees.length - 4}` : ''}
+                      </p>
+                    )}
+                  </div>
+                  {ev.meeting_link && (
+                    <a href={ev.meeting_link} target="_blank" rel="noopener noreferrer"
+                      className="shrink-0 px-3 py-1.5 rounded-lg bg-[#6C8EFF]/10 border border-[#6C8EFF]/20 text-[#6C8EFF] text-xs font-medium hover:bg-[#6C8EFF]/20 transition-colors">
+                      Entrar
+                    </a>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
 
       {/* Resumo do dia */}
       <div className="grid grid-cols-3 gap-4 mb-8">
