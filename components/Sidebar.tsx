@@ -7,7 +7,7 @@ import { useRouter } from 'next/navigation'
 import type { User } from '@supabase/supabase-js'
 
 const NAV = [
-  { href: '/',           label: 'Briefing do dia', icon: '◈' },
+  { href: '/briefing',   label: 'Briefing do dia', icon: '◈' },
   { href: '/meetings',   label: 'Reuniões',         icon: '◷' },
   { href: '/people',     label: 'Pessoas',          icon: '◉' },
   { href: '/companies',  label: 'Empresas',         icon: '◫' },
