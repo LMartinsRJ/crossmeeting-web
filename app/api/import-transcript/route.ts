@@ -3,12 +3,16 @@ import { createClient } from '@/lib/supabase/server'
 import { createClient as createServiceClient } from '@supabase/supabase-js'
 import Anthropic from '@anthropic-ai/sdk'
 
-const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
+function getAnthropic() {
+  return new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
+}
 
-const serviceClient = createServiceClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!,
-)
+function getServiceClient() {
+  return createServiceClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+  )
+}
 
 export async function POST(req: NextRequest) {
   const supabase = await createClient()
@@ -22,6 +26,8 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Transcrição vazia.' }, { status: 400 })
   }
 
+  const serviceClient = getServiceClient()
+
   const { data: profile } = await serviceClient
     .from('profiles').select('id').eq('email', user.email).single()
   if (!profile) {
@@ -33,7 +39,7 @@ export async function POST(req: NextRequest) {
   let actionItems: any[] = []
 
   try {
-    const message = await anthropic.messages.create({
+    const message = await getAnthropic().messages.create({
       model: 'claude-haiku-4-5-20251001',
       max_tokens: 2048,
       messages: [{

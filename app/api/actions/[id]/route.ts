@@ -2,13 +2,15 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createClient as createServiceClient } from '@supabase/supabase-js'
 
-const service = createServiceClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!,
-)
+function getService() {
+  return createServiceClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+  )
+}
 
 async function getProfileId(email: string) {
-  const { data } = await service.from('profiles').select('id, name').eq('email', email).single()
+  const { data } = await getService().from('profiles').select('id, name').eq('email', email).single()
   return data
 }
 
@@ -25,7 +27,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   const { _event_type, _event_field, _event_old, _event_new, _comment, ...fields } = body
 
   // Update action
-  const { data: updated, error } = await service
+  const { data: updated, error } = await getService()
     .from('action_items')
     .update({ ...fields, updated_at: new Date().toISOString() })
     .eq('id', id)
@@ -37,7 +39,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 
   // Log event
   if (_event_type) {
-    await service.from('action_item_events').insert({
+    await getService().from('action_item_events').insert({
       action_item_id: Number(id),
       user_id: profile.id,
       user_name: profile.name ?? user.email,
@@ -61,7 +63,7 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
   if (!profile) return NextResponse.json({ error: 'Perfil não encontrado.' }, { status: 404 })
 
   const { id } = await params
-  const { error } = await service
+  const { error } = await getService()
     .from('action_items')
     .delete()
     .eq('id', id)
