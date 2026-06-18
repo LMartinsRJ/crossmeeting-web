@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useCallback } from 'react'
 
 export interface CalendarEvent {
   id: string
@@ -53,12 +53,135 @@ function duration(startMs: number, endMs: number) {
   return m ? `${h}h ${m}min` : `${h}h`
 }
 
+// ── Recording confirmation modal ──────────────────────────────────────────────
+
+interface RecordingModalProps {
+  ev: CalendarEvent
+  onClose: () => void
+}
+
+function RecordingModal({ ev, onClose }: RecordingModalProps) {
+  const [step, setStep] = useState<'ask' | 'open_app'>('ask')
+
+  function enterWithRecording() {
+    setStep('open_app')
+  }
+
+  function enterDirect() {
+    window.open(ev.meeting_link!, '_blank', 'noopener,noreferrer')
+    onClose()
+  }
+
+  function enterAfterApp() {
+    window.open(ev.meeting_link!, '_blank', 'noopener,noreferrer')
+    onClose()
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={onClose} />
+      <div className="relative w-full max-w-sm bg-[#13161D] border border-white/[0.08] rounded-2xl shadow-2xl p-6">
+
+        {step === 'ask' ? (
+          <>
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-10 h-10 rounded-xl bg-[#6C8EFF]/10 border border-[#6C8EFF]/20 flex items-center justify-center text-lg shrink-0">
+                🎙️
+              </div>
+              <div>
+                <p className="text-sm font-semibold text-white">Quer gravar esta reunião?</p>
+                <p className="text-xs text-neutral-500 mt-0.5 line-clamp-1">{ev.title}</p>
+              </div>
+            </div>
+
+            <p className="text-xs text-neutral-400 leading-relaxed mb-5">
+              O Crossmeeting pode transcrever e gerar resumo automaticamente enquanto você participa da call.
+            </p>
+
+            <div className="space-y-2">
+              <button
+                onClick={enterWithRecording}
+                className="w-full flex items-center gap-3 px-4 py-3 rounded-xl bg-[#6C8EFF] hover:bg-[#5a7af0] transition-colors text-left"
+              >
+                <span className="text-lg">🖥️</span>
+                <div>
+                  <p className="text-sm font-semibold text-white">Sim, gravar com Crossmeeting</p>
+                  <p className="text-[11px] text-white/60">Abre o app antes de entrar na call</p>
+                </div>
+              </button>
+
+              <button
+                onClick={enterDirect}
+                className="w-full flex items-center gap-3 px-4 py-3 rounded-xl bg-white/[0.04] border border-white/[0.06] hover:bg-white/[0.07] transition-colors text-left"
+              >
+                <span className="text-lg">🔗</span>
+                <div>
+                  <p className="text-sm font-medium text-neutral-300">Entrar sem gravar</p>
+                  <p className="text-[11px] text-neutral-600">Abre o link diretamente</p>
+                </div>
+              </button>
+            </div>
+
+            <button onClick={onClose} className="w-full mt-3 text-xs text-neutral-700 hover:text-neutral-500 transition-colors py-1">
+              Cancelar
+            </button>
+          </>
+        ) : (
+          <>
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-10 h-10 rounded-xl bg-green-500/10 border border-green-500/20 flex items-center justify-center text-lg shrink-0">
+                ✅
+              </div>
+              <div>
+                <p className="text-sm font-semibold text-white">Abra o Crossmeeting</p>
+                <p className="text-xs text-neutral-500 mt-0.5">no seu computador agora</p>
+              </div>
+            </div>
+
+            <div className="bg-white/[0.03] border border-white/[0.06] rounded-xl p-4 mb-5 space-y-2">
+              <div className="flex items-start gap-2">
+                <span className="text-[#6C8EFF] font-bold text-sm shrink-0">1.</span>
+                <p className="text-xs text-neutral-300">Abra o <span className="text-white font-medium">Crossmeeting</span> no computador (sistema de bandeja)</p>
+              </div>
+              <div className="flex items-start gap-2">
+                <span className="text-[#6C8EFF] font-bold text-sm shrink-0">2.</span>
+                <p className="text-xs text-neutral-300">Clique em <span className="text-white font-medium">"Entrar na reunião"</span> abaixo — o app vai capturar o áudio automaticamente</p>
+              </div>
+              <div className="flex items-start gap-2">
+                <span className="text-[#6C8EFF] font-bold text-sm shrink-0">3.</span>
+                <p className="text-xs text-neutral-300">A transcrição e o resumo ficam disponíveis aqui na dashboard ao terminar</p>
+              </div>
+            </div>
+
+            <button
+              onClick={enterAfterApp}
+              className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-green-500 hover:bg-green-400 transition-colors font-semibold text-white text-sm"
+            >
+              Entrar na reunião →
+            </button>
+
+            <button
+              onClick={() => setStep('ask')}
+              className="w-full mt-2 text-xs text-neutral-700 hover:text-neutral-500 transition-colors py-1"
+            >
+              ← Voltar
+            </button>
+          </>
+        )}
+      </div>
+    </div>
+  )
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+
 interface EventCardProps {
   ev: CalendarEvent
   now: number
+  onEnterClick: (ev: CalendarEvent) => void
 }
 
-function EventCard({ ev, now }: EventCardProps) {
+function EventCard({ ev, now, onEnterClick }: EventCardProps) {
   const startMs = new Date(ev.start_at).getTime()
   const endMs   = new Date(ev.end_at).getTime()
   const { status, label } = timeLabel(startMs, endMs, now)
@@ -134,10 +257,8 @@ function EventCard({ ev, now }: EventCardProps) {
 
       {/* Action */}
       {ev.meeting_link && !isPast && (
-        <a
-          href={ev.meeting_link}
-          target="_blank"
-          rel="noopener noreferrer"
+        <button
+          onClick={() => onEnterClick(ev)}
           className={`shrink-0 px-4 py-2 rounded-xl text-sm font-semibold transition-colors ${
             isLive
               ? 'bg-green-500 text-white hover:bg-green-400'
@@ -147,7 +268,7 @@ function EventCard({ ev, now }: EventCardProps) {
           }`}
         >
           Entrar
-        </a>
+        </button>
       )}
 
       {isPast && ev.meeting_link && (
@@ -164,11 +285,15 @@ interface Group {
 
 export default function UpcomingMeetings({ events }: { events: CalendarEvent[] }) {
   const [now, setNow] = useState(() => Date.now())
+  const [enteringEv, setEnteringEv] = useState<CalendarEvent | null>(null)
 
-  // Atualiza o "agora" a cada 30 segundos
   useEffect(() => {
     const id = setInterval(() => setNow(Date.now()), 30_000)
     return () => clearInterval(id)
+  }, [])
+
+  const handleEnterClick = useCallback((ev: CalendarEvent) => {
+    setEnteringEv(ev)
   }, [])
 
   const groups = useMemo<Group[]>(() => {
@@ -214,17 +339,20 @@ export default function UpcomingMeetings({ events }: { events: CalendarEvent[] }
   }
 
   return (
-    <div className="space-y-6">
-      {groups.map(group => (
-        <div key={group.label}>
-          <p className="text-xs font-semibold text-neutral-500 uppercase tracking-wider mb-2">{group.label}</p>
-          <div className="space-y-2">
-            {group.events.map(ev => (
-              <EventCard key={ev.id} ev={ev} now={now} />
-            ))}
+    <>
+      <div className="space-y-6">
+        {groups.map(group => (
+          <div key={group.label}>
+            <p className="text-xs font-semibold text-neutral-500 uppercase tracking-wider mb-2">{group.label}</p>
+            <div className="space-y-2">
+              {group.events.map(ev => (
+                <EventCard key={ev.id} ev={ev} now={now} onEnterClick={handleEnterClick} />
+              ))}
+            </div>
           </div>
-        </div>
-      ))}
-    </div>
+        ))}
+      </div>
+      {enteringEv && <RecordingModal ev={enteringEv} onClose={() => setEnteringEv(null)} />}
+    </>
   )
 }
