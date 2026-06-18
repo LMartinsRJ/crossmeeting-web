@@ -8,10 +8,11 @@ import type { User } from '@supabase/supabase-js'
 
 const NAV = [
   { href: '/dashboard',  label: 'Dashboard',        icon: '◧' },
-  { href: '/briefing',   label: 'Briefing do dia', icon: '◈' },
-  { href: '/meetings',   label: 'Reuniões',         icon: '◷' },
-  { href: '/people',     label: 'Pessoas',          icon: '◉' },
-  { href: '/companies',  label: 'Empresas',         icon: '◫' },
+  { href: '/briefing',   label: 'Briefing do dia',  icon: '◈' },
+  { href: '/actions',    label: 'Ações',             icon: '✅' },
+  { href: '/meetings',   label: 'Reuniões',          icon: '◷' },
+  { href: '/people',     label: 'Pessoas',           icon: '◉' },
+  { href: '/companies',  label: 'Empresas',          icon: '◫' },
 ]
 
 const NAV2 = [
