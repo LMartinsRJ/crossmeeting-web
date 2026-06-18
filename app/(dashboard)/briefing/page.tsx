@@ -7,6 +7,18 @@ function formatDuration(secs: number) {
   return h > 0 ? `${h}h ${m % 60}min` : `${m}min`
 }
 
+interface ActionItem {
+  text: string
+  owner?: string
+  due?: string
+}
+
+interface MeetingWithActions {
+  id: number
+  title: string
+  actionItems: ActionItem[]
+}
+
 export default async function BriefingPage() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -47,6 +59,21 @@ export default async function BriefingPage() {
   const todaySecs = (todayMeetings ?? []).reduce((acc, m) => acc + (m.duration_seconds ?? 0), 0)
 
   const dateLabel = today.toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' })
+
+  // Extrai action items de todas as reuniões (hoje + últimos 7 dias)
+  const allMeetings = [...(todayMeetings ?? []), ...(recentMeetings ?? [])]
+  const meetingsWithActions: MeetingWithActions[] = allMeetings
+    .map(m => {
+      let actionItems: ActionItem[] = []
+      try {
+        const enh = m.enhancement ? JSON.parse(m.enhancement) : null
+        actionItems = Array.isArray(enh?.actionItems) ? enh.actionItems : []
+      } catch {}
+      return { id: m.id, title: m.title, actionItems }
+    })
+    .filter(m => m.actionItems.length > 0)
+
+  const totalActions = meetingsWithActions.reduce((acc, m) => acc + m.actionItems.length, 0)
 
   return (
     <div className="p-8 max-w-4xl mx-auto">
@@ -134,9 +161,51 @@ export default async function BriefingPage() {
         </div>
       </div>
 
+      {/* Ações pendentes */}
+      {totalActions > 0 && (
+        <div className="mb-6">
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="text-xs font-semibold text-neutral-500 uppercase tracking-wider">
+              Ações pendentes
+            </h2>
+            <span className="text-[10px] bg-[#6C8EFF]/10 text-[#6C8EFF] border border-[#6C8EFF]/20 px-2 py-0.5 rounded-full">
+              {totalActions} {totalActions === 1 ? 'ação' : 'ações'}
+            </span>
+          </div>
+          <div className="bg-white/[0.03] border border-white/[0.06] rounded-2xl overflow-hidden">
+            {meetingsWithActions.map((meeting, mi) =>
+              meeting.actionItems.map((action, ai) => {
+                const isLast = mi === meetingsWithActions.length - 1 && ai === meeting.actionItems.length - 1
+                return (
+                  <Link
+                    key={`${meeting.id}-${ai}`}
+                    href={`/meetings/${meeting.id}`}
+                    className={`flex items-start gap-3 px-5 py-3.5 hover:bg-white/[0.03] transition-colors group ${!isLast ? 'border-b border-white/[0.05]' : ''}`}
+                  >
+                    <span className="w-4 h-4 rounded border border-white/20 shrink-0 mt-0.5 group-hover:border-[#6C8EFF]/40 transition-colors" />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm text-neutral-300 leading-snug">{action.text}</p>
+                      <div className="flex items-center gap-3 mt-1 flex-wrap">
+                        {action.owner && (
+                          <span className="text-xs text-neutral-600">{action.owner}</span>
+                        )}
+                        {action.due && (
+                          <span className="text-xs text-[#6C8EFF]/70">{action.due}</span>
+                        )}
+                        <span className="text-[10px] text-neutral-700 truncate">{meeting.title}</span>
+                      </div>
+                    </div>
+                  </Link>
+                )
+              })
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Reuniões recentes (últimos 7 dias) */}
       {(recentMeetings?.length ?? 0) > 0 && (
-        <div>
+        <div className="mb-6">
           <div className="flex items-center justify-between mb-3">
             <h2 className="text-xs font-semibold text-neutral-500 uppercase tracking-wider">Últimos 7 dias</h2>
             <Link href="/meetings" className="text-xs text-[#6C8EFF] hover:opacity-80 transition-opacity">Ver todas →</Link>
@@ -169,11 +238,11 @@ export default async function BriefingPage() {
       )}
 
       {/* Briefing IA — em breve */}
-      <div className="mt-6">
+      <div>
         <h2 className="text-xs font-semibold text-neutral-500 uppercase tracking-wider mb-3">Briefing gerado por IA</h2>
         <div className="bg-white/[0.03] border border-white/[0.06] rounded-2xl p-6">
           <p className="text-sm text-neutral-400 leading-relaxed">
-            Em breve você receberá aqui um resumo gerado por IA com suas ações pendentes, contexto das reuniões do dia e sugestões de follow-up. Faz parte da <span className="text-[#6C8EFF]">Fase 12</span> do roadmap.
+            Em breve você receberá aqui um resumo gerado por IA com contexto das reuniões do dia e sugestões de follow-up. Faz parte da <span className="text-[#6C8EFF]">Fase 12</span> do roadmap.
           </p>
           <div className="mt-3 flex items-center gap-2">
             <span className="text-[10px] bg-[#6C8EFF]/10 text-[#6C8EFF] border border-[#6C8EFF]/20 px-2 py-1 rounded-full">Em breve</span>
