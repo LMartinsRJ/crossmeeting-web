@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
+import { createClient as createServiceClient } from '@supabase/supabase-js'
 import Link from 'next/link'
 import ImportTranscriptModal from '@/components/ImportTranscriptModal'
 
@@ -16,10 +17,21 @@ function formatDate(iso: string) {
 export default async function MeetingsPage({ searchParams }: { searchParams: Promise<{ q?: string }> }) {
   const { q } = await searchParams
   const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+
+  let myProfileId: string | null = null
+  if (user?.email) {
+    const service = createServiceClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    )
+    const { data: myProfile } = await service.from('profiles').select('id').eq('email', user.email).single()
+    myProfileId = myProfile?.id ?? null
+  }
 
   let query = supabase
     .from('meetings')
-    .select('id, title, created_at, duration_seconds, word_count, enhancement, attendees')
+    .select('id, title, created_at, duration_seconds, word_count, enhancement, attendees, user_id')
     .order('created_at', { ascending: false })
     .limit(50)
 
@@ -69,7 +81,14 @@ export default async function MeetingsPage({ searchParams }: { searchParams: Pro
             >
               <div className="flex items-start justify-between gap-4">
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-white truncate">{m.title}</p>
+                  <div className="flex items-center gap-2">
+                    <p className="text-sm font-medium text-white truncate">{m.title}</p>
+                    {myProfileId && m.user_id !== myProfileId && (
+                      <span className="text-[10px] bg-purple-500/10 text-purple-400 border border-purple-500/20 px-2 py-0.5 rounded-full shrink-0">
+                        Compartilhada
+                      </span>
+                    )}
+                  </div>
                   {summary && <p className="text-xs text-neutral-500 mt-1 line-clamp-2">{summary}</p>}
                   {attendees.length > 0 && (
                     <p className="text-xs text-neutral-600 mt-1">

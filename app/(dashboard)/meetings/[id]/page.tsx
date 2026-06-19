@@ -1,6 +1,8 @@
 import { createClient } from '@/lib/supabase/server'
+import { createClient as createServiceClient } from '@supabase/supabase-js'
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
+import ShareMeetingModal from '@/components/ShareMeetingModal'
 
 function formatDuration(secs: number) {
   const m = Math.floor(secs / 60)
@@ -11,6 +13,7 @@ function formatDuration(secs: number) {
 export default async function MeetingDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
   const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
 
   const { data: m } = await supabase
     .from('meetings')
@@ -19,6 +22,21 @@ export default async function MeetingDetailPage({ params }: { params: Promise<{ 
     .single()
 
   if (!m) notFound()
+
+  let isOwner = false
+  let ownerName: string | null = null
+  if (user?.email) {
+    const service = createServiceClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    )
+    const { data: myProfile } = await service.from('profiles').select('id').eq('email', user.email).single()
+    isOwner = myProfile?.id === m.user_id
+    if (!isOwner) {
+      const { data: owner } = await service.from('profiles').select('name, email').eq('id', m.user_id).single()
+      ownerName = owner?.name ?? owner?.email ?? null
+    }
+  }
 
   let enhancement: any = null
   let attendees: { name: string; email: string }[] = []
@@ -31,7 +49,16 @@ export default async function MeetingDetailPage({ params }: { params: Promise<{ 
         ← Todas as reuniões
       </Link>
 
-      <h1 className="text-2xl font-semibold text-white mb-2">{m.title}</h1>
+      <div className="flex items-start justify-between gap-4 mb-2">
+        <h1 className="text-2xl font-semibold text-white">{m.title}</h1>
+        {isOwner ? (
+          <ShareMeetingModal meetingId={m.id} />
+        ) : ownerName ? (
+          <span className="text-xs bg-purple-500/10 text-purple-400 border border-purple-500/20 px-3 py-1.5 rounded-lg shrink-0">
+            Compartilhada por {ownerName}
+          </span>
+        ) : null}
+      </div>
       <p className="text-sm text-neutral-500 mb-8">
         {new Date(m.created_at).toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
         {' · '}{formatDuration(m.duration_seconds)}
