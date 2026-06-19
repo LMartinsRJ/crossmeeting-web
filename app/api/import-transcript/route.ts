@@ -21,7 +21,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Não autenticado.' }, { status: 401 })
   }
 
-  const { title, transcript, attendees, date } = await req.json()
+  const { title, transcript, attendees, date, spaceId } = await req.json()
   if (!transcript?.trim()) {
     return NextResponse.json({ error: 'Transcrição vazia.' }, { status: 400 })
   }
@@ -32,6 +32,22 @@ export async function POST(req: NextRequest) {
     .from('profiles').select('id').eq('email', user.email).single()
   if (!profile) {
     return NextResponse.json({ error: 'Perfil não encontrado. Abra o app desktop primeiro.' }, { status: 404 })
+  }
+
+  // Se uma pasta foi indicada, valida que o usuário é dono ou membro convidado
+  let validSpaceId: number | null = null
+  if (spaceId) {
+    const { data: space } = await serviceClient.from('spaces').select('id, user_id').eq('id', spaceId).single()
+    if (space) {
+      const isOwner = space.user_id === profile.id
+      let isMember = false
+      if (!isOwner) {
+        const { data: share } = await serviceClient
+          .from('space_shares').select('id').eq('space_id', spaceId).eq('shared_with_id', profile.id).single()
+        isMember = !!share
+      }
+      if (isOwner || isMember) validSpaceId = space.id
+    }
   }
 
   // Process with Claude — includes transcript_excerpt per action item
@@ -82,6 +98,7 @@ ${transcript.slice(0, 8000)}`,
     .from('meetings')
     .insert({
       user_id: profile.id,
+      space_id: validSpaceId,
       title: title?.trim() || 'Reunião importada',
       created_at: meetingDate,
       duration_seconds: 0,

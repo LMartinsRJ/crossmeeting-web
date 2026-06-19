@@ -3,6 +3,7 @@ import { createClient as createServiceClient } from '@supabase/supabase-js'
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import ShareMeetingModal from '@/components/ShareMeetingModal'
+import MoveToSpaceSelect from '@/components/MoveToSpaceSelect'
 
 function formatDuration(secs: number) {
   const m = Math.floor(secs / 60)
@@ -52,7 +53,10 @@ export default async function MeetingDetailPage({ params }: { params: Promise<{ 
       <div className="flex items-start justify-between gap-4 mb-2">
         <h1 className="text-2xl font-semibold text-white">{m.title}</h1>
         {isOwner ? (
-          <ShareMeetingModal meetingId={m.id} />
+          <div className="flex items-center gap-2 shrink-0">
+            <MoveToSpaceSelect meetingId={m.id} currentSpaceId={m.space_id ?? null} />
+            <ShareMeetingModal meetingId={m.id} />
+          </div>
         ) : ownerName ? (
           <span className="text-xs bg-purple-500/10 text-purple-400 border border-purple-500/20 px-3 py-1.5 rounded-lg shrink-0">
             Compartilhada por {ownerName}

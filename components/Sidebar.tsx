@@ -11,6 +11,7 @@ const NAV = [
   { href: '/briefing',   label: 'Briefing do dia',  icon: '◈' },
   { href: '/actions',    label: 'Ações',             icon: '✅' },
   { href: '/meetings',   label: 'Reuniões',          icon: '◷' },
+  { href: '/spaces',     label: 'Pastas',            icon: '📁' },
   { href: '/people',     label: 'Pessoas',           icon: '◉' },
   { href: '/companies',  label: 'Empresas',          icon: '◫' },
 ]

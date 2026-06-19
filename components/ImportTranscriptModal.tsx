@@ -47,7 +47,7 @@ function titleFromFilename(filename: string): string {
 
 // ─────────────────────────────────────────────────────────────────────────────
 
-export default function ImportTranscriptModal() {
+export default function ImportTranscriptModal({ defaultSpaceId, label }: { defaultSpaceId?: number; label?: string } = {}) {
   const [open, setOpen] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -139,7 +139,7 @@ export default function ImportTranscriptModal() {
       const res = await fetch('/api/import-transcript', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title, transcript, attendees, date }),
+        body: JSON.stringify({ title, transcript, attendees, date, spaceId: defaultSpaceId }),
       })
       const json = await res.json()
       if (!res.ok) throw new Error(json.error || 'Erro ao importar.')
@@ -161,7 +161,7 @@ export default function ImportTranscriptModal() {
         className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#6C8EFF]/10 border border-[#6C8EFF]/20 text-[#6C8EFF] text-sm font-medium hover:bg-[#6C8EFF]/20 transition-colors"
       >
         <span className="text-base leading-none">↑</span>
-        Importar transcrição
+        {label ?? 'Importar transcrição'}
       </button>
 
       {open && (
