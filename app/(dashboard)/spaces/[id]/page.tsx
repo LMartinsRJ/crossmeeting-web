@@ -4,6 +4,8 @@ import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import ShareSpaceModal from '@/components/ShareSpaceModal'
 import ImportTranscriptModal from '@/components/ImportTranscriptModal'
+import DraggableMeetingRow from '@/components/DraggableMeetingRow'
+import SpaceDropTargets from '@/components/SpaceDropTargets'
 
 function formatDuration(secs: number) {
   if (secs < 60) return `${secs}s`
@@ -71,7 +73,9 @@ export default async function SpaceDetailPage({ params }: { params: Promise<{ id
         </div>
       </div>
 
-      <p className="text-sm text-neutral-500 mb-8">{meetings?.length ?? 0} reuniões nesta pasta</p>
+      <p className="text-sm text-neutral-500 mb-4">{meetings?.length ?? 0} reuniões nesta pasta</p>
+
+      <SpaceDropTargets />
 
       <div className="bg-white/[0.03] border border-white/[0.06] rounded-2xl overflow-hidden">
         {!meetings || meetings.length === 0 ? (
@@ -84,8 +88,9 @@ export default async function SpaceDetailPage({ params }: { params: Promise<{ id
           try { summary = m.enhancement ? JSON.parse(m.enhancement)?.summary : null } catch {}
           try { attendees = m.attendees ? (Array.isArray(m.attendees) ? m.attendees : JSON.parse(m.attendees)) : [] } catch {}
           return (
-            <Link
+            <DraggableMeetingRow
               key={m.id}
+              meetingId={m.id}
               href={`/meetings/${m.id}`}
               className={`block px-6 py-4 hover:bg-white/[0.03] transition-colors ${i < meetings.length - 1 ? 'border-b border-white/[0.05]' : ''}`}
             >
@@ -102,7 +107,7 @@ export default async function SpaceDetailPage({ params }: { params: Promise<{ id
                   <p className="text-xs text-neutral-600 mt-0.5">{formatDuration(m.duration_seconds)}</p>
                 </div>
               </div>
-            </Link>
+            </DraggableMeetingRow>
           )
         })}
       </div>
