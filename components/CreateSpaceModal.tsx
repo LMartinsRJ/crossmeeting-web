@@ -24,7 +24,7 @@ export default function CreateSpaceModal() {
         body: JSON.stringify({ name, emoji }),
       })
       const data = await res.json()
-      if (!res.ok) { setError(data.error ?? 'Erro ao criar pasta.'); return }
+      if (!res.ok) { setError(data.error ?? 'Erro ao criar space.'); return }
       setOpen(false)
       setName('')
       router.refresh()
@@ -39,14 +39,14 @@ export default function CreateSpaceModal() {
         onClick={() => setOpen(true)}
         className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#6C8EFF]/10 border border-[#6C8EFF]/20 text-[#6C8EFF] text-sm font-medium hover:bg-[#6C8EFF]/20 transition-colors"
       >
-        + Nova pasta
+        + Novo space
       </button>
 
       {open && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={() => !loading && setOpen(false)} />
           <div className="relative w-full max-w-sm bg-[#13161D] border border-white/[0.08] rounded-2xl shadow-2xl p-6">
-            <p className="text-sm font-semibold text-white mb-4">Nova pasta</p>
+            <p className="text-sm font-semibold text-white mb-4">Novo space</p>
             <form onSubmit={handleSubmit}>
               <div className="flex flex-wrap gap-2 mb-4">
                 {EMOJIS.map(e => (

@@ -41,7 +41,7 @@ export default function SpaceDropTargets() {
 
   return (
     <div className="mb-5">
-      <p className="text-xs text-neutral-600 mb-2">Arraste uma reunião até uma pasta para organizar:</p>
+      <p className="text-xs text-neutral-600 mb-2">Arraste uma reunião até um space para organizar:</p>
       <div className="flex flex-wrap gap-2">
         {spaces.map(s => (
           <div

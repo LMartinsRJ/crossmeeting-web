@@ -52,14 +52,19 @@ export default async function SpaceDetailPage({ params }: { params: Promise<{ id
   return (
     <div className="p-8 max-w-4xl mx-auto">
       <Link href="/spaces" className="text-xs text-neutral-600 hover:text-neutral-400 transition-colors mb-6 inline-block">
-        ← Todas as pastas
+        ← Todos os spaces
       </Link>
 
       <div className="flex items-start justify-between gap-4 mb-2">
         <div className="flex items-center gap-3">
           <span className="text-3xl">{space.emoji}</span>
           <div>
-            <h1 className="text-2xl font-semibold text-white">{space.name}</h1>
+            <div className="flex items-center gap-2">
+              <h1 className="text-2xl font-semibold text-white">{space.name}</h1>
+              {space.is_default && (
+                <span className="text-[10px] text-neutral-600 bg-white/[0.04] px-2 py-0.5 rounded-full">padrão</span>
+              )}
+            </div>
             {!isOwner && ownerName && (
               <span className="text-xs bg-purple-500/10 text-purple-400 border border-purple-500/20 px-2 py-0.5 rounded-full inline-block mt-1">
                 Compartilhada por {ownerName}
@@ -69,18 +74,18 @@ export default async function SpaceDetailPage({ params }: { params: Promise<{ id
         </div>
         <div className="flex items-center gap-2 shrink-0">
           {isOwner && <ShareSpaceModal spaceId={space.id} />}
-          <ImportTranscriptModal defaultSpaceId={space.id} label="Importar para esta pasta" />
+          <ImportTranscriptModal defaultSpaceId={space.id} label="Importar para este space" />
         </div>
       </div>
 
-      <p className="text-sm text-neutral-500 mb-4">{meetings?.length ?? 0} reuniões nesta pasta</p>
+      <p className="text-sm text-neutral-500 mb-4">{meetings?.length ?? 0} reuniões neste space</p>
 
       <SpaceDropTargets />
 
       <div className="bg-white/[0.03] border border-white/[0.06] rounded-2xl overflow-hidden">
         {!meetings || meetings.length === 0 ? (
           <p className="text-sm text-neutral-600 p-6">
-            Nenhuma reunião aqui ainda. Importe uma transcrição direto para esta pasta{!isOwner ? ' — todos com acesso vão ver.' : '.'}
+            Nenhuma reunião aqui ainda. Importe uma transcrição direto para este space{!isOwner ? ' — todos com acesso vão ver.' : '.'}
           </p>
         ) : meetings.map((m, i) => {
           let summary: string | null = null

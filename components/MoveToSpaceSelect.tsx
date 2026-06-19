@@ -8,6 +8,7 @@ interface SpaceOption {
   name: string
   emoji: string
   ownerName: string | null
+  is_default?: boolean
 }
 
 export default function MoveToSpaceSelect({ meetingId, currentSpaceId }: { meetingId: number; currentSpaceId: number | null }) {
@@ -28,7 +29,7 @@ export default function MoveToSpaceSelect({ meetingId, currentSpaceId }: { meeti
       await fetch(`/api/meetings/${meetingId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ spaceId: value ? Number(value) : null }),
+        body: JSON.stringify({ spaceId: Number(value) }),
       })
       router.refresh()
     } finally {
@@ -43,10 +44,9 @@ export default function MoveToSpaceSelect({ meetingId, currentSpaceId }: { meeti
       disabled={loading}
       className="text-xs bg-white/[0.04] border border-white/[0.08] hover:bg-white/[0.07] text-neutral-300 px-3 py-1.5 rounded-lg transition-colors outline-none disabled:opacity-50"
     >
-      <option value="">Sem pasta</option>
       {spaces.map(s => (
         <option key={s.id} value={s.id}>
-          {s.emoji} {s.name}{s.ownerName ? ` (de ${s.ownerName})` : ''}
+          {s.emoji} {s.name}{s.is_default ? ' (padrão)' : ''}{s.ownerName ? ` · de ${s.ownerName}` : ''}
         </option>
       ))}
     </select>

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createClient as createServiceClient } from '@supabase/supabase-js'
 import Anthropic from '@anthropic-ai/sdk'
+import { getOrCreateDefaultSpace } from '@/lib/spaces'
 
 function getAnthropic() {
   return new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
@@ -48,6 +49,12 @@ export async function POST(req: NextRequest) {
       }
       if (isOwner || isMember) validSpaceId = space.id
     }
+  }
+
+  // Sem pasta indicada (ou inválida) → cai no space padrão, igual ao app desktop
+  if (!validSpaceId) {
+    const defaultSpace = await getOrCreateDefaultSpace(serviceClient, profile.id)
+    validSpaceId = defaultSpace.id
   }
 
   // Process with Claude — includes transcript_excerpt per action item

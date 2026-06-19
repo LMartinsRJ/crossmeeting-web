@@ -55,16 +55,16 @@ export default function ShareSpaceModal({ spaceId }: { spaceId: number }) {
         onClick={() => setOpen(true)}
         className="flex items-center gap-1.5 text-xs bg-white/[0.04] border border-white/[0.08] hover:bg-white/[0.07] text-neutral-300 px-3 py-1.5 rounded-lg transition-colors"
       >
-        <span>🔗</span> Compartilhar pasta
+        <span>🔗</span> Compartilhar space
       </button>
 
       {open && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={() => setOpen(false)} />
           <div className="relative w-full max-w-sm bg-[#13161D] border border-white/[0.08] rounded-2xl shadow-2xl p-6">
-            <p className="text-sm font-semibold text-white mb-1">Compartilhar pasta</p>
+            <p className="text-sm font-semibold text-white mb-1">Compartilhar space</p>
             <p className="text-xs text-neutral-500 mb-4">
-              A pessoa convidada vê todas as reuniões desta pasta e também pode importar transcrições direto para ela.
+              A pessoa convidada vê todas as reuniões deste space e também pode importar transcrições direto para ele.
             </p>
 
             <form onSubmit={handleShare} className="flex gap-2 mb-4">

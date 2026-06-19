@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createClient as createServiceClient } from '@supabase/supabase-js'
+import { getOrCreateDefaultSpace } from '@/lib/spaces'
 
 function getService() {
   return createServiceClient(
@@ -19,10 +20,13 @@ export async function GET() {
   const { data: profile } = await service.from('profiles').select('id').eq('email', user.email).single()
   if (!profile) return NextResponse.json({ error: 'Perfil não encontrado.' }, { status: 404 })
 
+  await getOrCreateDefaultSpace(service, profile.id)
+
   const { data: owned } = await service
     .from('spaces')
-    .select('id, name, emoji, created_at')
+    .select('id, name, emoji, created_at, is_default')
     .eq('user_id', profile.id)
+    .order('is_default', { ascending: false })
     .order('name', { ascending: true })
 
   const { data: sharedRows } = await service
