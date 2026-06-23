@@ -14,6 +14,7 @@ export default function SpaceDropTargets() {
   const [spaces, setSpaces] = useState<SpaceOption[]>([])
   const [dragOverId, setDragOverId] = useState<number | null>(null)
   const [movedId, setMovedId] = useState<number | null>(null)
+  const [error, setError] = useState<string | null>(null)
   const router = useRouter()
 
   useEffect(() => {
@@ -25,15 +26,25 @@ export default function SpaceDropTargets() {
   const handleDrop = useCallback(async (spaceId: number, e: React.DragEvent) => {
     e.preventDefault()
     setDragOverId(null)
-    const meetingId = e.dataTransfer.getData('text/crossmeeting-meeting-id')
-    if (!meetingId) return
-    await fetch(`/api/meetings/${meetingId}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ spaceId }),
-    })
+    setError(null)
+    const raw = e.dataTransfer.getData('text/crossmeeting-meeting-id')
+    if (!raw) return
+    const meetingIds = raw.split(',').map(Number).filter(Boolean)
+    if (meetingIds.length === 0) return
+    const results = await Promise.all(meetingIds.map(id =>
+      fetch(`/api/meetings/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ spaceId }),
+      }).then(r => r.ok)
+    ))
+    const failed = results.filter(ok => !ok).length
+    if (failed > 0) {
+      setError(`${failed} de ${meetingIds.length} reunião(ões) não puderam ser movidas (sem permissão).`)
+      setTimeout(() => setError(null), 4000)
+    }
     setMovedId(spaceId)
-    setTimeout(() => setMovedId(null), 1500)
+    setTimeout(() => setMovedId(prev => (prev === spaceId ? null : prev)), 1500)
     router.refresh()
   }, [router])
 
@@ -42,6 +53,7 @@ export default function SpaceDropTargets() {
   return (
     <div className="mb-5">
       <p className="text-xs text-neutral-600 mb-2">Arraste uma reunião até um space para organizar:</p>
+      {error && <p className="text-xs text-red-400 mb-2">{error}</p>}
       <div className="flex flex-wrap gap-2">
         {spaces.map(s => (
           <div

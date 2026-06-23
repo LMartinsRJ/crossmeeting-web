@@ -1,7 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { createClient as createServiceClient } from '@supabase/supabase-js'
-import Link from 'next/link'
 import CreateSpaceModal from '@/components/CreateSpaceModal'
+import SpaceCard from '@/components/SpaceCard'
 import { getOrCreateDefaultSpace } from '@/lib/spaces'
 
 export default async function SpacesPage() {
@@ -68,16 +68,16 @@ export default async function SpacesPage() {
               <h2 className="text-xs font-semibold text-neutral-500 uppercase tracking-wider mb-3">Seus spaces</h2>
               <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
                 {owned.map(s => (
-                  <Link key={s.id} href={`/spaces/${s.id}`} className="bg-white/[0.03] border border-white/[0.06] hover:border-white/[0.12] rounded-2xl p-4 transition-colors">
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="text-2xl">{s.emoji}</span>
-                      {s.is_default && (
-                        <span className="text-[9px] text-neutral-600 bg-white/[0.04] px-1.5 py-0.5 rounded-full shrink-0">padrão</span>
-                      )}
-                    </div>
-                    <p className="text-sm font-medium text-white mt-2 truncate">{s.name}</p>
-                    <p className="text-xs text-neutral-600 mt-0.5">{counts.get(s.id) ?? 0} reuniões</p>
-                  </Link>
+                  <SpaceCard
+                    key={s.id}
+                    id={s.id}
+                    href={`/spaces/${s.id}`}
+                    emoji={s.emoji}
+                    name={s.name}
+                    isDefault={s.is_default}
+                    meetingCount={counts.get(s.id) ?? 0}
+                    canDelete={!s.is_default}
+                  />
                 ))}
               </div>
             </div>
@@ -88,13 +88,16 @@ export default async function SpacesPage() {
               <h2 className="text-xs font-semibold text-neutral-500 uppercase tracking-wider mb-3">Compartilhadas com você</h2>
               <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
                 {shared.map(s => (
-                  <Link key={s.id} href={`/spaces/${s.id}`} className="bg-white/[0.03] border border-purple-500/15 hover:border-purple-500/30 rounded-2xl p-4 transition-colors">
-                    <span className="text-2xl">{s.emoji}</span>
-                    <p className="text-sm font-medium text-white mt-2 truncate">{s.name}</p>
-                    <p className="text-xs text-neutral-600 mt-0.5">
-                      {counts.get(s.id) ?? 0} reuniões{s.ownerName ? ` · de ${s.ownerName}` : ''}
-                    </p>
-                  </Link>
+                  <SpaceCard
+                    key={s.id}
+                    id={s.id}
+                    href={`/spaces/${s.id}`}
+                    emoji={s.emoji}
+                    name={s.name}
+                    meetingCount={counts.get(s.id) ?? 0}
+                    ownerName={s.ownerName}
+                    canDelete={false}
+                  />
                 ))}
               </div>
             </div>

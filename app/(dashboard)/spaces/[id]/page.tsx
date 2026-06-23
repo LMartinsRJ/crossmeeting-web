@@ -3,9 +3,11 @@ import { createClient as createServiceClient } from '@supabase/supabase-js'
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import ShareSpaceModal from '@/components/ShareSpaceModal'
+import DeleteSpaceButton from '@/components/DeleteSpaceButton'
 import ImportTranscriptModal from '@/components/ImportTranscriptModal'
 import DraggableMeetingRow from '@/components/DraggableMeetingRow'
 import SpaceDropTargets from '@/components/SpaceDropTargets'
+import MeetingSelectionProvider from '@/components/MeetingSelectionContext'
 
 function formatDuration(secs: number) {
   if (secs < 60) return `${secs}s`
@@ -74,6 +76,7 @@ export default async function SpaceDetailPage({ params }: { params: Promise<{ id
         </div>
         <div className="flex items-center gap-2 shrink-0">
           {isOwner && <ShareSpaceModal spaceId={space.id} />}
+          {isOwner && !space.is_default && <DeleteSpaceButton spaceId={space.id} spaceName={space.name} />}
           <ImportTranscriptModal defaultSpaceId={space.id} label="Importar para este space" />
         </div>
       </div>
@@ -82,6 +85,7 @@ export default async function SpaceDetailPage({ params }: { params: Promise<{ id
 
       <SpaceDropTargets />
 
+      <MeetingSelectionProvider>
       <div className="bg-white/[0.03] border border-white/[0.06] rounded-2xl overflow-hidden">
         {!meetings || meetings.length === 0 ? (
           <p className="text-sm text-neutral-600 p-6">
@@ -97,7 +101,7 @@ export default async function SpaceDetailPage({ params }: { params: Promise<{ id
               key={m.id}
               meetingId={m.id}
               href={`/meetings/${m.id}`}
-              className={`block px-6 py-4 hover:bg-white/[0.03] transition-colors ${i < meetings.length - 1 ? 'border-b border-white/[0.05]' : ''}`}
+              className={`px-6 py-4 hover:bg-white/[0.03] transition-colors ${i < meetings.length - 1 ? 'border-b border-white/[0.05]' : ''}`}
             >
               <div className="flex items-start justify-between gap-4">
                 <div className="flex-1 min-w-0">
@@ -116,6 +120,7 @@ export default async function SpaceDetailPage({ params }: { params: Promise<{ id
           )
         })}
       </div>
+      </MeetingSelectionProvider>
     </div>
   )
 }

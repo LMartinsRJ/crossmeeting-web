@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createClient as createServiceClient } from '@supabase/supabase-js'
+import { getOrCreateDefaultSpace } from '@/lib/spaces'
 
 function getService() {
   return createServiceClient(
@@ -45,4 +46,29 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     .order('created_at', { ascending: false })
 
   return NextResponse.json({ space, isOwner, meetings: meetings ?? [] })
+}
+
+export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user?.email) return NextResponse.json({ error: 'Não autenticado.' }, { status: 401 })
+
+  const service = getService()
+  const { id } = await params
+  const { space, isOwner } = await getProfileAndAccess(service, user.email, id)
+  if (!space || !isOwner) {
+    return NextResponse.json({ error: 'Pasta não encontrada ou você não é o dono.' }, { status: 404 })
+  }
+  if (space.is_default) {
+    return NextResponse.json({ error: 'O space padrão não pode ser excluído.' }, { status: 400 })
+  }
+
+  // Reuniões do space excluído voltam para o space padrão (toda reunião sempre tem um space)
+  const defaultSpace = await getOrCreateDefaultSpace(service, space.user_id)
+  const { error: unlinkError } = await service.from('meetings').update({ space_id: defaultSpace.id }).eq('space_id', id)
+  if (unlinkError) return NextResponse.json({ error: unlinkError.message }, { status: 500 })
+
+  const { error } = await service.from('spaces').delete().eq('id', id).eq('user_id', space.user_id)
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  return NextResponse.json({ ok: true })
 }

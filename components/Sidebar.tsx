@@ -1,5 +1,6 @@
 'use client'
 
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
@@ -16,6 +17,8 @@ const NAV = [
   { href: '/companies',  label: 'Empresas',          icon: '◫' },
 ]
 
+const SHARES_SEEN_KEY = 'cm_shares_seen_at'
+
 const NAV2 = [
   { href: '/settings',   label: 'Configurações',    icon: '◎' },
 ]
@@ -24,9 +27,25 @@ export default function Sidebar({ user }: { user: User }) {
   const pathname = usePathname()
   const router = useRouter()
   const supabase = createClient()
+  const [unseenShares, setUnseenShares] = useState(0)
 
   const initials = (user.user_metadata?.full_name as string ?? user.email ?? '?')
     .split(' ').map((n: string) => n[0]).join('').slice(0, 2).toUpperCase()
+
+  useEffect(() => {
+    fetch('/api/shares/summary').then(r => r.json()).then(data => {
+      const seenAt = Number(localStorage.getItem(SHARES_SEEN_KEY) ?? 0)
+      const unseen = (data.timestamps ?? []).filter((t: string) => new Date(t).getTime() > seenAt)
+      setUnseenShares(unseen.length)
+    }).catch(() => {})
+  }, [])
+
+  useEffect(() => {
+    if (pathname === '/spaces' || pathname.startsWith('/spaces/') || pathname === '/meetings') {
+      localStorage.setItem(SHARES_SEEN_KEY, String(Date.now()))
+      setUnseenShares(0)
+    }
+  }, [pathname])
 
   async function handleLogout() {
     await supabase.auth.signOut()
@@ -62,7 +81,10 @@ export default function Sidebar({ user }: { user: User }) {
                 : 'text-neutral-500 hover:text-neutral-200 hover:bg-white/[0.04]'
             }`}
           >
-            {item.label}
+            <span className="flex-1">{item.label}</span>
+            {item.href === '/spaces' && unseenShares > 0 && (
+              <span className="text-[10px] bg-[#6C8EFF] text-white font-semibold px-1.5 py-0.5 rounded-full">{unseenShares}</span>
+            )}
           </Link>
         ))}
 
