@@ -25,7 +25,7 @@ export default async function BriefingPage() {
 
   const { data: meetings } = await supabase
     .from('meetings')
-    .select('id, title, created_at, duration_seconds, word_count, enhancement, attendees')
+    .select('id, title, created_at, duration_seconds, word_count, enhancement, attendees, space_id')
     .gte('created_at', thisMonthStart)
     .order('created_at', { ascending: false })
     .limit(50)
@@ -38,7 +38,10 @@ export default async function BriefingPage() {
 
   const totalMeetings = meetings?.length ?? 0
   const totalMinutes = Math.round((meetings ?? []).reduce((acc, m) => acc + (m.duration_seconds ?? 0), 0) / 60)
-  const recentMeetings = (meetings ?? []).slice(0, 5)
+  // Início mostra só reuniões sem pasta — uma vez categorizada, a reunião só aparece
+  // dentro da pasta dela (igual ao desktop/Android). As métricas acima continuam
+  // contando todas as reuniões do mês, categorizadas ou não.
+  const recentMeetings = (meetings ?? []).filter(m => m.space_id == null).slice(0, 5)
 
   return (
     <div className="p-8 max-w-5xl mx-auto">
