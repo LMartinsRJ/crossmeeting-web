@@ -7,8 +7,10 @@ export default async function CompaniesPage() {
     .select('id, name, email, meeting_count, last_seen')
     .order('last_seen', { ascending: false })
 
+  type Contact = NonNullable<typeof contacts>[number]
+
   // Group by domain
-  const companyMap = new Map<string, { domain: string; contacts: typeof contacts; totalMeetings: number; lastSeen: string }>()
+  const companyMap = new Map<string, { domain: string; contacts: Contact[]; totalMeetings: number; lastSeen: string }>()
   for (const c of contacts ?? []) {
     const domain = c.email.split('@')[1] ?? 'unknown'
     if (!companyMap.has(domain)) {
