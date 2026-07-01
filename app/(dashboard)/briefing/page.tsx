@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
+import { createClient as createServiceClient } from '@supabase/supabase-js'
 import Link from 'next/link'
 import UpcomingMeetings from '@/components/UpcomingMeetings'
 
@@ -25,6 +26,12 @@ export default async function BriefingPage() {
   const { data: { user } } = await supabase.auth.getUser()
 
   const firstName = (user?.user_metadata?.full_name as string ?? 'você').split(' ')[0]
+
+  // Service client para calendar_events (bypassa RLS — filtramos manualmente pelo profile_id)
+  const service = createServiceClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+  )
   const hour = new Date().getHours()
   const greeting = hour < 12 ? 'Bom dia' : hour < 18 ? 'Boa tarde' : 'Boa noite'
 
@@ -37,6 +44,18 @@ export default async function BriefingPage() {
 
   const in7Days = new Date(today)
   in7Days.setDate(in7Days.getDate() + 7)
+
+  // Resolve o profile_id determinístico a partir do email da sessão web
+  const userEmail = user?.email ?? user?.user_metadata?.email as string | undefined
+  let calendarProfileId: string | null = null
+  if (userEmail) {
+    const { data: profile } = await service
+      .from('profiles')
+      .select('id')
+      .eq('email', userEmail)
+      .maybeSingle()
+    calendarProfileId = profile?.id ?? null
+  }
 
   const [{ data: todayMeetings }, { data: recentMeetings }, { data: recentContacts }, { data: upcomingEvents }] = await Promise.all([
     supabase
@@ -57,13 +76,16 @@ export default async function BriefingPage() {
       .gte('last_seen', last7Start.toISOString())
       .order('last_seen', { ascending: false })
       .limit(6),
-    supabase
-      .from('calendar_events')
-      .select('id, title, start_at, end_at, meeting_link, attendees, provider, recurring_event_id')
-      .gte('start_at', todayIso)
-      .lte('start_at', in7Days.toISOString())
-      .order('start_at', { ascending: true })
-      .limit(10),
+    calendarProfileId
+      ? service
+          .from('calendar_events')
+          .select('id, title, start_at, end_at, meeting_link, attendees, provider, recurring_event_id')
+          .eq('user_id', calendarProfileId)
+          .gte('start_at', todayIso)
+          .lte('start_at', in7Days.toISOString())
+          .order('start_at', { ascending: true })
+          .limit(10)
+      : Promise.resolve({ data: [] as any[] }),
   ])
 
   // Detecta reuniões recorrentes entre os próximos eventos e busca a última gravação de cada
