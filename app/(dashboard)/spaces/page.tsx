@@ -44,7 +44,7 @@ export default async function SpacesPage() {
   const allIds = [...owned, ...shared].map(s => s.id)
   const counts = new Map<number, number>()
   if (allIds.length > 0) {
-    const { data: meetingsBySpace } = await service.from('meetings').select('space_id').in('space_id', allIds)
+    const { data: meetingsBySpace } = await service.from('meetings').select('space_id').in('space_id', allIds).is('deleted_at', null)
     for (const m of meetingsBySpace ?? []) {
       counts.set(m.space_id, (counts.get(m.space_id) ?? 0) + 1)
     }

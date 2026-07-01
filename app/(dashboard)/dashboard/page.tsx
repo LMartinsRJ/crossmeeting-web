@@ -20,8 +20,8 @@ export default async function DashboardPage() {
     { data: contacts },
     { data: apiKeys },
   ] = await Promise.all([
-    supabase.from('meetings').select('id, title, created_at, duration_seconds, word_count, attendees, enhancement').gte('created_at', thisMonthStart).order('created_at', { ascending: false }),
-    supabase.from('meetings').select('id, duration_seconds').gte('created_at', lastMonthStart).lt('created_at', thisMonthStart),
+    supabase.from('meetings').select('id, title, created_at, duration_seconds, word_count, attendees, enhancement').gte('created_at', thisMonthStart).is('deleted_at', null).order('created_at', { ascending: false }),
+    supabase.from('meetings').select('id, duration_seconds').gte('created_at', lastMonthStart).lt('created_at', thisMonthStart).is('deleted_at', null),
     supabase.from('contacts').select('id, name, email, meeting_count, last_seen').order('meeting_count', { ascending: false }).limit(8),
     supabase.from('api_keys').select('id, name, last_used_at').is('revoked_at', null),
   ])

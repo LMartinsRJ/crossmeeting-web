@@ -62,12 +62,14 @@ export default async function BriefingPage() {
       .from('meetings')
       .select('id, title, created_at, duration_seconds, word_count, enhancement, attendees')
       .gte('created_at', todayIso)
+      .is('deleted_at', null)
       .order('created_at', { ascending: false }),
     supabase
       .from('meetings')
       .select('id, title, created_at, duration_seconds, enhancement, attendees')
       .gte('created_at', last7Start.toISOString())
       .lt('created_at', todayIso)
+      .is('deleted_at', null)
       .order('created_at', { ascending: false })
       .limit(5),
     supabase

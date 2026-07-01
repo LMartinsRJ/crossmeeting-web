@@ -20,6 +20,7 @@ export default async function MeetingDetailPage({ params }: { params: Promise<{ 
     .from('meetings')
     .select('*')
     .eq('id', id)
+    .is('deleted_at', null)
     .single()
 
   if (!m) notFound()

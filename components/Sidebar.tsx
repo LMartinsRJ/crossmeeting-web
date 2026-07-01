@@ -20,6 +20,7 @@ const NAV = [
 const SHARES_SEEN_KEY = 'cm_shares_seen_at'
 
 const NAV2 = [
+  { href: '/trash',      label: 'Lixeira',          icon: '🗑' },
   { href: '/settings',   label: 'Configurações',    icon: '◎' },
 ]
 

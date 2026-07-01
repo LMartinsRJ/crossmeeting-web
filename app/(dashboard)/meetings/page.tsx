@@ -34,6 +34,7 @@ export default async function MeetingsPage({ searchParams }: { searchParams: Pro
   let query = supabase
     .from('meetings')
     .select('id, title, created_at, duration_seconds, word_count, enhancement, attendees, user_id')
+    .is('deleted_at', null)
     .order('created_at', { ascending: false })
     .limit(50)
 

@@ -49,6 +49,7 @@ export default async function SpaceDetailPage({ params }: { params: Promise<{ id
     .from('meetings')
     .select('id, title, created_at, duration_seconds, enhancement, attendees')
     .eq('space_id', id)
+    .is('deleted_at', null)
     .order('created_at', { ascending: false })
 
   return (
