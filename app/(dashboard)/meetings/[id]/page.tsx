@@ -4,6 +4,7 @@ import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import ShareMeetingModal from '@/components/ShareMeetingModal'
 import MoveToSpaceSelect from '@/components/MoveToSpaceSelect'
+import MeetingTitleEditor from '@/components/MeetingTitleEditor'
 
 function formatDuration(secs: number) {
   const m = Math.floor(secs / 60)
@@ -52,7 +53,10 @@ export default async function MeetingDetailPage({ params }: { params: Promise<{ 
       </Link>
 
       <div className="flex items-start justify-between gap-4 mb-2">
-        <h1 className="text-2xl font-semibold text-white">{m.title}</h1>
+        {isOwner
+          ? <MeetingTitleEditor meetingId={m.id} title={m.title} />
+          : <h1 className="text-2xl font-semibold text-white flex-1">{m.title}</h1>
+        }
         {isOwner ? (
           <div className="flex items-center gap-2 shrink-0">
             <MoveToSpaceSelect meetingId={m.id} currentSpaceId={m.space_id ?? null} />

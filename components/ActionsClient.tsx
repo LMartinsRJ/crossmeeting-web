@@ -73,7 +73,7 @@ function fmtDateTime(iso: string) {
 
 // ── Edit Modal ────────────────────────────────────────────────────────────────
 
-function EditModal({ action, onClose, onSaved }: { action: ActionItem, onClose: () => void, onSaved: (a: ActionItem) => void }) {
+export function EditModal({ action, onClose, onSaved }: { action: ActionItem, onClose: () => void, onSaved: (a: ActionItem) => void }) {
   const [loading, setLoading] = useState(false)
   const [form, setForm] = useState({
     text: action.text,
@@ -210,7 +210,7 @@ function EditModal({ action, onClose, onSaved }: { action: ActionItem, onClose: 
 
 // ── Detail Modal ──────────────────────────────────────────────────────────────
 
-function DetailModal({ action, onClose, onEdit, onDeleted, onStatusChange }: {
+export function DetailModal({ action, onClose, onEdit, onDeleted, onStatusChange }: {
   action: ActionItem
   onClose: () => void
   onEdit: () => void
@@ -515,7 +515,13 @@ export default function ActionsClient({ initial }: { initial: ActionItem[] }) {
             <div className="self-center"><Badge map={STATUS_LABELS} colors={STATUS_COLORS} value={a.status} /></div>
             <p className="text-xs text-neutral-600 self-center">{fmtDate(a.created_at)}</p>
             <div className="flex items-center justify-between self-center">
-              <p className="text-xs text-neutral-600">{a.due_date ? fmtDate(a.due_date) : '—'}</p>
+              {(() => {
+                if (!a.due_date || a.status === 'concluida') return <p className="text-xs text-neutral-600">{a.due_date ? fmtDate(a.due_date) : '—'}</p>
+                const todayStr = new Date().toISOString().slice(0, 10)
+                if (a.due_date < todayStr) return <span className="text-[11px] bg-red-500/10 text-red-400 border border-red-500/20 rounded px-1.5 py-0.5 shrink-0">Em atraso — {fmtDate(a.due_date)}</span>
+                if (a.due_date === todayStr) return <span className="text-[11px] bg-amber-500/10 text-amber-400 border border-amber-500/20 rounded px-1.5 py-0.5 shrink-0">Vence hoje</span>
+                return <p className="text-xs text-neutral-600">{fmtDate(a.due_date)}</p>
+              })()}
               <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity" onClick={e => e.stopPropagation()}>
                 <button onClick={() => { setEditing(a) }}
                   className="w-6 h-6 rounded-lg bg-white/[0.05] hover:bg-white/[0.10] flex items-center justify-center text-xs text-neutral-400" title="Editar">✏️</button>

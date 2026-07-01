@@ -25,6 +25,7 @@ export default function MeetingSelectionProvider({ children }: { children: React
   const [selected, setSelected] = useState<Set<number>>(new Set())
   const [spaces, setSpaces] = useState<SpaceOption[]>([])
   const [moving, setMoving] = useState(false)
+  const [deleting, setDeleting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const router = useRouter()
 
@@ -46,6 +47,27 @@ export default function MeetingSelectionProvider({ children }: { children: React
       })
     }
   }, [selected.size, spaces.length])
+
+  async function handleBulkDelete() {
+    if (!confirm(`Mover ${selected.size} reunião(ões) para a lixeira?`)) return
+    setDeleting(true)
+    setError(null)
+    try {
+      const ids = [...selected]
+      const results = await Promise.all(ids.map(id =>
+        fetch(`/api/meetings/${id}`, { method: 'DELETE' }).then(r => r.ok)
+      ))
+      const failed = results.filter(ok => !ok).length
+      if (failed > 0) {
+        setError(`${failed} reunião(ões) não puderam ser apagadas (sem permissão).`)
+        setTimeout(() => setError(null), 4000)
+      }
+      clear()
+      router.refresh()
+    } finally {
+      setDeleting(false)
+    }
+  }
 
   async function handleMoveTo(spaceId: number) {
     setMoving(true)
@@ -91,6 +113,13 @@ export default function MeetingSelectionProvider({ children }: { children: React
               <option key={s.id} value={s.id}>{s.emoji} {s.name}</option>
             ))}
           </select>
+          <button
+            onClick={handleBulkDelete}
+            disabled={deleting || moving}
+            className="text-xs text-red-400 hover:text-red-300 border border-red-500/30 hover:border-red-500/50 px-3 py-1.5 rounded-lg transition-colors disabled:opacity-50"
+          >
+            {deleting ? 'Apagando...' : 'Mover para lixeira'}
+          </button>
           <button
             onClick={clear}
             className="text-xs text-neutral-600 hover:text-neutral-400 transition-colors"

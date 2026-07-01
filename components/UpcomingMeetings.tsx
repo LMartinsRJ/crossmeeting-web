@@ -61,18 +61,25 @@ interface RecordingModalProps {
 }
 
 function RecordingModal({ ev, onClose }: RecordingModalProps) {
-  const [step, setStep] = useState<'ask' | 'open_app'>('ask')
+  const [launched, setLaunched] = useState(false)
 
   function enterWithRecording() {
-    setStep('open_app')
+    // Dispara o deep link — lança o Crossmeeting desktop e passa o título da reunião
+    const params = new URLSearchParams({
+      title: ev.title,
+      meetingLink: ev.meeting_link ?? '',
+    })
+    window.location.href = `crossmeeting://record?${params.toString()}`
+
+    // Aguarda 1.5s e abre o Meet/Zoom para dar tempo ao app abrir
+    setTimeout(() => {
+      window.open(ev.meeting_link!, '_blank', 'noopener,noreferrer')
+    }, 1500)
+
+    setLaunched(true)
   }
 
   function enterDirect() {
-    window.open(ev.meeting_link!, '_blank', 'noopener,noreferrer')
-    onClose()
-  }
-
-  function enterAfterApp() {
     window.open(ev.meeting_link!, '_blank', 'noopener,noreferrer')
     onClose()
   }
@@ -82,7 +89,7 @@ function RecordingModal({ ev, onClose }: RecordingModalProps) {
       <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={onClose} />
       <div className="relative w-full max-w-sm bg-[#13161D] border border-white/[0.08] rounded-2xl shadow-2xl p-6">
 
-        {step === 'ask' ? (
+        {!launched ? (
           <>
             <div className="flex items-center gap-3 mb-4">
               <div className="w-10 h-10 rounded-xl bg-[#6C8EFF]/10 border border-[#6C8EFF]/20 flex items-center justify-center text-lg shrink-0">
@@ -95,7 +102,7 @@ function RecordingModal({ ev, onClose }: RecordingModalProps) {
             </div>
 
             <p className="text-xs text-neutral-400 leading-relaxed mb-5">
-              O Crossmeeting pode transcrever e gerar resumo automaticamente enquanto você participa da call.
+              O Crossmeeting abre automaticamente e começa a capturar o áudio assim que você entrar na call.
             </p>
 
             <div className="space-y-2">
@@ -106,7 +113,7 @@ function RecordingModal({ ev, onClose }: RecordingModalProps) {
                 <span className="text-lg">🖥️</span>
                 <div>
                   <p className="text-sm font-semibold text-white">Sim, gravar com Crossmeeting</p>
-                  <p className="text-[11px] text-white/60">Abre o app antes de entrar na call</p>
+                  <p className="text-[11px] text-white/60">Lança o app e abre a call automaticamente</p>
                 </div>
               </button>
 
@@ -129,42 +136,33 @@ function RecordingModal({ ev, onClose }: RecordingModalProps) {
         ) : (
           <>
             <div className="flex items-center gap-3 mb-4">
-              <div className="w-10 h-10 rounded-xl bg-green-500/10 border border-green-500/20 flex items-center justify-center text-lg shrink-0">
-                ✅
+              <div className="w-10 h-10 rounded-xl bg-green-500/10 border border-green-500/20 flex items-center justify-center shrink-0">
+                <span className="relative flex h-3 w-3">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75" />
+                  <span className="relative inline-flex rounded-full h-3 w-3 bg-green-500" />
+                </span>
               </div>
               <div>
-                <p className="text-sm font-semibold text-white">Abra o Crossmeeting</p>
-                <p className="text-xs text-neutral-500 mt-0.5">no seu computador agora</p>
+                <p className="text-sm font-semibold text-white">Crossmeeting sendo aberto…</p>
+                <p className="text-xs text-neutral-500 mt-0.5">A call abre em instantes</p>
               </div>
             </div>
 
-            <div className="bg-white/[0.03] border border-white/[0.06] rounded-xl p-4 mb-5 space-y-2">
-              <div className="flex items-start gap-2">
-                <span className="text-[#6C8EFF] font-bold text-sm shrink-0">1.</span>
-                <p className="text-xs text-neutral-300">Abra o <span className="text-white font-medium">Crossmeeting</span> no computador (sistema de bandeja)</p>
-              </div>
-              <div className="flex items-start gap-2">
-                <span className="text-[#6C8EFF] font-bold text-sm shrink-0">2.</span>
-                <p className="text-xs text-neutral-300">Clique em <span className="text-white font-medium">"Entrar na reunião"</span> abaixo — o app vai capturar o áudio automaticamente</p>
-              </div>
-              <div className="flex items-start gap-2">
-                <span className="text-[#6C8EFF] font-bold text-sm shrink-0">3.</span>
-                <p className="text-xs text-neutral-300">A transcrição e o resumo ficam disponíveis aqui na dashboard ao terminar</p>
-              </div>
+            <div className="bg-white/[0.03] border border-white/[0.06] rounded-xl px-4 py-3 mb-5">
+              <p className="text-xs text-neutral-400 leading-relaxed">
+                Se o app não abrir automaticamente, verifique se o Crossmeeting está instalado no computador e clique em <span className="text-white">Abrir</span> no diálogo do sistema.
+              </p>
             </div>
 
             <button
-              onClick={enterAfterApp}
+              onClick={() => { window.open(ev.meeting_link!, '_blank', 'noopener,noreferrer'); onClose() }}
               className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-green-500 hover:bg-green-400 transition-colors font-semibold text-white text-sm"
             >
               Entrar na reunião →
             </button>
 
-            <button
-              onClick={() => setStep('ask')}
-              className="w-full mt-2 text-xs text-neutral-700 hover:text-neutral-500 transition-colors py-1"
-            >
-              ← Voltar
+            <button onClick={onClose} className="w-full mt-2 text-xs text-neutral-700 hover:text-neutral-500 transition-colors py-1">
+              Fechar
             </button>
           </>
         )}

@@ -4,6 +4,7 @@ import ImportTranscriptModal from '@/components/ImportTranscriptModal'
 import DraggableMeetingRow from '@/components/DraggableMeetingRow'
 import SpaceDropTargets from '@/components/SpaceDropTargets'
 import MeetingSelectionProvider from '@/components/MeetingSelectionContext'
+import MeetingMenuButton from '@/components/MeetingMenuButton'
 
 function formatDuration(secs: number) {
   if (secs < 60) return `${secs}s`
@@ -80,36 +81,40 @@ export default async function MeetingsPage({ searchParams }: { searchParams: Pro
           try { attendees = m.attendees ? (Array.isArray(m.attendees) ? m.attendees : JSON.parse(m.attendees)) : [] } catch {}
 
           return (
-            <DraggableMeetingRow
-              key={m.id}
-              meetingId={m.id}
-              href={`/meetings/${m.id}`}
-              className={`px-6 py-4 hover:bg-white/[0.03] transition-colors ${i < meetings.length - 1 ? 'border-b border-white/[0.05]' : ''}`}
-            >
-              <div className="flex items-start justify-between gap-4">
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2">
-                    <p className="text-sm font-medium text-white truncate">{m.title}</p>
-                    {myProfileId && m.user_id !== myProfileId && (
-                      <span className="text-[10px] bg-purple-500/10 text-purple-400 border border-purple-500/20 px-2 py-0.5 rounded-full shrink-0">
-                        Compartilhada
-                      </span>
+            <div key={m.id} className={`relative group flex items-center ${i < meetings.length - 1 ? 'border-b border-white/[0.05]' : ''}`}>
+              <DraggableMeetingRow
+                meetingId={m.id}
+                href={`/meetings/${m.id}`}
+                className="flex-1 min-w-0 px-6 py-4 hover:bg-white/[0.03] transition-colors"
+              >
+                <div className="flex items-start justify-between gap-4 pr-8">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <p className="text-sm font-medium text-white truncate">{m.title}</p>
+                      {myProfileId && m.user_id !== myProfileId && (
+                        <span className="text-[10px] bg-purple-500/10 text-purple-400 border border-purple-500/20 px-2 py-0.5 rounded-full shrink-0">
+                          Compartilhada
+                        </span>
+                      )}
+                    </div>
+                    {summary && <p className="text-xs text-neutral-500 mt-1 line-clamp-2">{summary}</p>}
+                    {attendees.length > 0 && (
+                      <p className="text-xs text-neutral-600 mt-1">
+                        {attendees.slice(0, 3).map(a => a.name).join(', ')}
+                        {attendees.length > 3 ? ` +${attendees.length - 3}` : ''}
+                      </p>
                     )}
                   </div>
-                  {summary && <p className="text-xs text-neutral-500 mt-1 line-clamp-2">{summary}</p>}
-                  {attendees.length > 0 && (
-                    <p className="text-xs text-neutral-600 mt-1">
-                      {attendees.slice(0, 3).map(a => a.name).join(', ')}
-                      {attendees.length > 3 ? ` +${attendees.length - 3}` : ''}
-                    </p>
-                  )}
+                  <div className="text-right shrink-0">
+                    <p className="text-xs text-neutral-500">{formatDate(m.created_at)}</p>
+                    <p className="text-xs text-neutral-600 mt-0.5">{formatDuration(m.duration_seconds)}</p>
+                  </div>
                 </div>
-                <div className="text-right shrink-0">
-                  <p className="text-xs text-neutral-500">{formatDate(m.created_at)}</p>
-                  <p className="text-xs text-neutral-600 mt-0.5">{formatDuration(m.duration_seconds)}</p>
-                </div>
+              </DraggableMeetingRow>
+              <div className="absolute right-3 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity">
+                <MeetingMenuButton meetingId={m.id} title={m.title} />
               </div>
-            </DraggableMeetingRow>
+            </div>
           )
         })}
       </div>
