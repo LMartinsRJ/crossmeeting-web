@@ -190,7 +190,7 @@ export default async function BriefingPage() {
 
   const dateLabel = today.toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' })
 
-  const todayEvents = (upcomingEvents ?? []).filter(e =>
+  const todayEvents = ((upcomingEvents ?? []) as any[]).filter(e =>
     new Date(e.start_at) <= new Date(new Date().setHours(23, 59, 59, 999))
   )
 
