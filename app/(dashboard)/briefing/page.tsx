@@ -130,9 +130,9 @@ export default async function BriefingPage() {
     { data: todayMeetings },
     { data: recentMeetings },
     { data: allActions },
+    { data: recentActionItems },
     { data: recentContacts },
     { data: upcomingEvents },
-    { data: recentActionItems },
   ] = await Promise.all([
     supabase.from('meetings')
       .select('id, title, created_at, duration_seconds, enhancement')
