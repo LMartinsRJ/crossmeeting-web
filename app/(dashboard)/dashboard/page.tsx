@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import Link from 'next/link'
+import { parseAttendees } from '@/lib/parsers'
 
 function formatDuration(secs: number) {
   const m = Math.floor(secs / 60)
@@ -123,8 +124,7 @@ export default async function DashboardPage() {
             {recentMeetings.length === 0 ? (
               <p className="text-sm text-neutral-600 p-5">Nenhuma reunião este mês.</p>
             ) : recentMeetings.map((m, i) => {
-              let attendees: { name: string }[] = []
-              try { attendees = m.attendees ? (Array.isArray(m.attendees) ? m.attendees : JSON.parse(m.attendees)) : [] } catch {}
+              const attendees = parseAttendees(m.attendees)
               return (
                 <Link
                   key={m.id}

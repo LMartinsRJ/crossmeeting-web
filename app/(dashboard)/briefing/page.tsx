@@ -8,6 +8,7 @@ import Link from 'next/link'
 import UpcomingMeetings from '@/components/UpcomingMeetings'
 import BriefingActions from '@/components/BriefingActions'
 import CalendarSyncTrigger from '@/components/CalendarSyncTrigger'
+import { parseEnhancementSummary } from '@/lib/parsers'
 
 function formatDuration(secs: number) {
   const m = Math.floor(secs / 60)
@@ -59,7 +60,7 @@ async function generateAIBriefing(
         : 'Nenhuma reunião gravada hoje ainda.'
 
       const msg = await client.messages.create({
-        model: 'claude-sonnet-4-6',
+        model: process.env.CLAUDE_SONNET_MODEL ?? 'claude-sonnet-4-6',
         max_tokens: 600,
         messages: [{
           role: 'user',
@@ -345,8 +346,7 @@ export default async function BriefingPage() {
               <p className="text-sm text-neutral-600 p-5">Nenhuma reunião gravada hoje ainda.</p>
             ) : (
               (todayMeetings ?? []).map((m, i) => {
-                let summary: string | null = null
-                try { summary = m.enhancement ? JSON.parse(m.enhancement)?.summary : null } catch {}
+                const summary = parseEnhancementSummary(m.enhancement)
                 return (
                   <Link
                     key={m.id}

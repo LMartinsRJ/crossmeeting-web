@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { createClient as createServiceClient } from '@supabase/supabase-js'
 import { notFound } from 'next/navigation'
+import { parseAttendees, parseEnhancementSummary } from '@/lib/parsers'
 import Link from 'next/link'
 import ShareSpaceModal from '@/components/ShareSpaceModal'
 import DeleteSpaceButton from '@/components/DeleteSpaceButton'
@@ -93,10 +94,8 @@ export default async function SpaceDetailPage({ params }: { params: Promise<{ id
             Nenhuma reunião aqui ainda. Importe uma transcrição direto para este space{!isOwner ? ' — todos com acesso vão ver.' : '.'}
           </p>
         ) : meetings.map((m, i) => {
-          let summary: string | null = null
-          let attendees: { name: string }[] = []
-          try { summary = m.enhancement ? JSON.parse(m.enhancement)?.summary : null } catch {}
-          try { attendees = m.attendees ? (Array.isArray(m.attendees) ? m.attendees : JSON.parse(m.attendees)) : [] } catch {}
+          const summary = parseEnhancementSummary(m.enhancement)
+          const attendees = parseAttendees(m.attendees)
           return (
             <DraggableMeetingRow
               key={m.id}

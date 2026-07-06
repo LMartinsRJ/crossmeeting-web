@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
+import { parseEnhancementSummary } from '@/lib/parsers'
 
 function formatDuration(secs: number) {
   if (secs < 60) return `${secs}s`
@@ -81,8 +82,7 @@ export default async function BriefingPage() {
             {recentMeetings.length === 0 ? (
               <p className="text-sm text-neutral-600 p-5">Nenhuma reunião este mês.</p>
             ) : recentMeetings.map((m, i) => {
-              let summary: string | null = null
-              try { summary = m.enhancement ? JSON.parse(m.enhancement)?.summary : null } catch {}
+              const summary = parseEnhancementSummary(m.enhancement)
               return (
                 <a
                   key={m.id}

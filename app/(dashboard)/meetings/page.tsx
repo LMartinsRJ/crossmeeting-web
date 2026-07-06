@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
+import { parseAttendees, parseEnhancementSummary } from '@/lib/parsers'
 import { createClient as createServiceClient } from '@supabase/supabase-js'
 import ImportTranscriptModal from '@/components/ImportTranscriptModal'
 import DraggableMeetingRow from '@/components/DraggableMeetingRow'
@@ -75,10 +76,8 @@ export default async function MeetingsPage({ searchParams }: { searchParams: Pro
             {q ? `Nenhuma reunião encontrada para "${q}".` : 'Nenhuma reunião encontrada.'}
           </p>
         ) : meetings.map((m, i) => {
-          let summary: string | null = null
-          let attendees: { name: string; email: string }[] = []
-          try { summary = m.enhancement ? JSON.parse(m.enhancement)?.summary : null } catch {}
-          try { attendees = m.attendees ? (Array.isArray(m.attendees) ? m.attendees : JSON.parse(m.attendees)) : [] } catch {}
+          const summary = parseEnhancementSummary(m.enhancement)
+          const attendees = parseAttendees(m.attendees)
 
           return (
             <div key={m.id} className={`relative group flex items-center ${i < meetings.length - 1 ? 'border-b border-white/[0.05]' : ''}`}>

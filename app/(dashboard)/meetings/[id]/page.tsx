@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
+import { parseAttendees, parseEnhancement } from '@/lib/parsers'
 import { createClient as createServiceClient } from '@supabase/supabase-js'
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
@@ -48,10 +49,8 @@ export default async function MeetingDetailPage({
     }
   }
 
-  let enhancement: any = null
-  let attendees: { name: string; email: string }[] = []
-  try { enhancement = m.enhancement ? JSON.parse(m.enhancement) : null } catch {}
-  try { attendees = m.attendees ? (Array.isArray(m.attendees) ? m.attendees : JSON.parse(m.attendees)) : [] } catch {}
+  const enhancement = parseEnhancement(m.enhancement)
+  const attendees = parseAttendees(m.attendees)
 
   return (
     <div className="p-8 max-w-3xl mx-auto">

@@ -15,20 +15,29 @@ function getServiceClient() {
   )
 }
 
-// Rate limit: máx 10 importações por user por hora (in-memory, reseta no cold start)
-const importCounts = new Map<string, { count: number; resetAt: number }>()
 const RATE_LIMIT = 10
 const RATE_WINDOW_MS = 60 * 60 * 1000 // 1 hora
 
-function checkRateLimit(userId: string): boolean {
-  const now = Date.now()
-  const entry = importCounts.get(userId)
-  if (!entry || now > entry.resetAt) {
-    importCounts.set(userId, { count: 1, resetAt: now + RATE_WINDOW_MS })
+// Rate limit persistente via Supabase (sobrevive a cold starts da Vercel)
+async function checkRateLimit(userId: string): Promise<boolean> {
+  const service = getServiceClient()
+  const now = new Date()
+  const { data } = await service
+    .from('import_rate_limits')
+    .select('count, reset_at')
+    .eq('user_id', userId)
+    .single()
+
+  if (!data || new Date(data.reset_at) < now) {
+    await service.from('import_rate_limits').upsert({
+      user_id: userId,
+      count: 1,
+      reset_at: new Date(now.getTime() + RATE_WINDOW_MS).toISOString(),
+    }, { onConflict: 'user_id' })
     return true
   }
-  if (entry.count >= RATE_LIMIT) return false
-  entry.count++
+  if (data.count >= RATE_LIMIT) return false
+  await service.from('import_rate_limits').update({ count: data.count + 1 }).eq('user_id', userId)
   return true
 }
 
@@ -39,7 +48,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Não autenticado.' }, { status: 401 })
   }
 
-  if (!checkRateLimit(user.id)) {
+  if (!await checkRateLimit(user.id)) {
     return NextResponse.json(
       { error: 'Limite de importações atingido. Tente novamente em uma hora.' },
       { status: 429 }
@@ -91,7 +100,7 @@ export async function POST(req: NextRequest) {
 
   try {
     const message = await getAnthropic().messages.create({
-      model: 'claude-haiku-4-5-20251001',
+      model: process.env.CLAUDE_HAIKU_MODEL ?? 'claude-haiku-4-5-20251001',
       max_tokens: 2048,
       messages: [{
         role: 'user',

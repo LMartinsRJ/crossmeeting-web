@@ -1,7 +1,8 @@
 'use client'
 
-import { useState, useMemo, useCallback } from 'react'
+import { useState, useMemo, useCallback, useEffect } from 'react'
 import Link from 'next/link'
+import { createClient } from '@/lib/supabase/client'
 
 export interface ActionItem {
   id: number
@@ -400,6 +401,24 @@ export default function ActionsClient({ initial }: { initial: ActionItem[] }) {
   const [filterArea, setFilterArea] = useState('')
   const [detail, setDetail] = useState<ActionItem | null>(null)
   const [editing, setEditing] = useState<ActionItem | null>(null)
+
+  // Realtime: atualiza ações quando outro usuário altera num space compartilhado
+  useEffect(() => {
+    const supabase = createClient()
+    const channel = supabase
+      .channel('action_items_realtime')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'action_items' }, payload => {
+        if (payload.eventType === 'UPDATE') {
+          setActions(prev => prev.map(a => a.id === (payload.new as ActionItem).id ? { ...a, ...(payload.new as ActionItem) } : a))
+        } else if (payload.eventType === 'INSERT') {
+          setActions(prev => [payload.new as ActionItem, ...prev])
+        } else if (payload.eventType === 'DELETE') {
+          setActions(prev => prev.filter(a => a.id !== (payload.old as ActionItem).id))
+        }
+      })
+      .subscribe()
+    return () => { supabase.removeChannel(channel) }
+  }, [])
 
   const filtered = useMemo(() => {
     return actions.filter(a => {
