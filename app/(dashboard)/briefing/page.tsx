@@ -7,6 +7,7 @@ import Anthropic from '@anthropic-ai/sdk'
 import Link from 'next/link'
 import UpcomingMeetings from '@/components/UpcomingMeetings'
 import BriefingActions from '@/components/BriefingActions'
+import CalendarSyncTrigger from '@/components/CalendarSyncTrigger'
 
 function formatDuration(secs: number) {
   const m = Math.floor(secs / 60)
@@ -253,6 +254,7 @@ export default async function BriefingPage() {
 
   return (
     <div className="p-8 max-w-4xl mx-auto">
+      <CalendarSyncTrigger />
 
       {/* Header */}
       <div className="mb-6">

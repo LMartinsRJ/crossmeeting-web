@@ -9,6 +9,8 @@ export async function loginWithGoogle() {
     provider: 'google',
     options: {
       redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000'}/auth/callback`,
+      scopes: 'openid email profile https://www.googleapis.com/auth/calendar.readonly',
+      queryParams: { access_type: 'offline', prompt: 'consent' },
     },
   })
   if (error) redirect('/login?error=auth')
@@ -20,7 +22,7 @@ export async function loginWithMicrosoft() {
   const { data, error } = await supabase.auth.signInWithOAuth({
     provider: 'azure',
     options: {
-      scopes: 'email',
+      scopes: 'email Calendars.Read offline_access',
       redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000'}/auth/callback`,
     },
   })
