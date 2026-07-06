@@ -145,7 +145,8 @@ export default function ImportTranscriptModal({ defaultSpaceId, label }: { defau
       if (!res.ok) throw new Error(json.error || 'Erro ao importar.')
       setOpen(false)
       resetForm()
-      router.push(`/meetings/${json.id}`)
+      // Mesmo com aviso de IA, redireciona — a transcrição foi salva
+      router.push(`/meetings/${json.id}${json.warning ? '?warn=ai' : ''}`)
       router.refresh()
     } catch (err: any) {
       setError(err.message)

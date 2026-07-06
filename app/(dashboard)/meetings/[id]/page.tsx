@@ -12,8 +12,15 @@ function formatDuration(secs: number) {
   return h > 0 ? `${h}h ${m % 60}min` : `${m}min`
 }
 
-export default async function MeetingDetailPage({ params }: { params: Promise<{ id: string }> }) {
+export default async function MeetingDetailPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ id: string }>
+  searchParams: Promise<{ warn?: string }>
+}) {
   const { id } = await params
+  const { warn } = await searchParams
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
 
@@ -51,6 +58,16 @@ export default async function MeetingDetailPage({ params }: { params: Promise<{ 
       <Link href="/meetings" className="text-xs text-neutral-600 hover:text-neutral-400 transition-colors mb-6 inline-block">
         ← Todas as reuniões
       </Link>
+
+      {warn === 'ai' && (
+        <div className="mb-5 flex items-start gap-3 bg-amber-500/10 border border-amber-500/20 rounded-xl px-4 py-3">
+          <span className="text-amber-400 mt-0.5 shrink-0">⚠</span>
+          <p className="text-xs text-amber-300 leading-relaxed">
+            A análise com IA não foi concluída. A transcrição foi salva normalmente, mas o resumo e as ações não foram gerados.
+            Você pode tentar reimportar a transcrição ou adicionar as ações manualmente.
+          </p>
+        </div>
+      )}
 
       <div className="flex items-start justify-between gap-4 mb-2">
         {isOwner

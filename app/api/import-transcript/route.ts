@@ -15,11 +15,35 @@ function getServiceClient() {
   )
 }
 
+// Rate limit: máx 10 importações por user por hora (in-memory, reseta no cold start)
+const importCounts = new Map<string, { count: number; resetAt: number }>()
+const RATE_LIMIT = 10
+const RATE_WINDOW_MS = 60 * 60 * 1000 // 1 hora
+
+function checkRateLimit(userId: string): boolean {
+  const now = Date.now()
+  const entry = importCounts.get(userId)
+  if (!entry || now > entry.resetAt) {
+    importCounts.set(userId, { count: 1, resetAt: now + RATE_WINDOW_MS })
+    return true
+  }
+  if (entry.count >= RATE_LIMIT) return false
+  entry.count++
+  return true
+}
+
 export async function POST(req: NextRequest) {
   const supabase = await createClient()
   const { data: { user }, error: authError } = await supabase.auth.getUser()
   if (authError || !user?.email) {
     return NextResponse.json({ error: 'Não autenticado.' }, { status: 401 })
+  }
+
+  if (!checkRateLimit(user.id)) {
+    return NextResponse.json(
+      { error: 'Limite de importações atingido. Tente novamente em uma hora.' },
+      { status: 429 }
+    )
   }
 
   const { title, transcript, attendees, date, spaceId } = await req.json()
@@ -60,6 +84,10 @@ export async function POST(req: NextRequest) {
   // Process with Claude — includes transcript_excerpt per action item
   let enhancement: object | null = null
   let actionItems: any[] = []
+  let enhancementFailed = false
+
+  // Haiku tem 200k tokens de contexto; 80k chars ≈ 20k tokens — seguro e cobre a maioria das transcrições
+  const transcriptForClaude = transcript.slice(0, 80_000)
 
   try {
     const message = await getAnthropic().messages.create({
@@ -78,7 +106,7 @@ export async function POST(req: NextRequest) {
 Responda APENAS com o JSON, sem markdown.
 
 TRANSCRIÇÃO:
-${transcript.slice(0, 8000)}`,
+${transcriptForClaude}`,
       }],
     })
 
@@ -94,7 +122,10 @@ ${transcript.slice(0, 8000)}`,
       actionItems: actionItems.map(({ excerpt, ...rest }: any) => rest),
       decisions: parsed.decisions,
     }
-  } catch {}
+  } catch (err) {
+    console.error('[import-transcript] Claude falhou:', err)
+    enhancementFailed = true
+  }
 
   const wordCount = transcript.trim().split(/\s+/).length
   const meetingDate = date ? new Date(date).toISOString() : new Date().toISOString()
@@ -158,5 +189,8 @@ ${transcript.slice(0, 8000)}`,
     }
   }
 
-  return NextResponse.json({ id: meeting.id })
+  return NextResponse.json({
+    id: meeting.id,
+    ...(enhancementFailed && { warning: 'A análise com IA falhou. A transcrição foi salva, mas o resumo e as ações não foram gerados.' }),
+  })
 }
