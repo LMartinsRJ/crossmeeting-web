@@ -101,6 +101,7 @@ export default async function SpaceDetailPage({ params }: { params: Promise<{ id
               key={m.id}
               meetingId={m.id}
               href={`/meetings/${m.id}`}
+              title={m.title}
               className={`px-6 py-4 hover:bg-white/[0.03] transition-colors ${i < meetings.length - 1 ? 'border-b border-white/[0.05]' : ''}`}
             >
               <div className="flex items-start justify-between gap-4">

@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import Sidebar from '@/components/Sidebar'
+import { DragProvider } from '@/components/DragStore'
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
   const supabase = await createClient()
@@ -8,11 +9,13 @@ export default async function DashboardLayout({ children }: { children: React.Re
   if (!user) redirect('/login')
 
   return (
-    <div className="flex h-screen overflow-hidden bg-[#0E1117]">
-      <Sidebar user={user} />
-      <main className="flex-1 overflow-y-auto">
-        {children}
-      </main>
-    </div>
+    <DragProvider>
+      <div className="flex h-screen overflow-hidden bg-[#0E1117]">
+        <Sidebar user={user} />
+        <main className="flex-1 overflow-y-auto">
+          {children}
+        </main>
+      </div>
+    </DragProvider>
   )
 }
