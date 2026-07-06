@@ -18,33 +18,56 @@ function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' })
 }
 
-export default async function MeetingsPage({ searchParams }: { searchParams: Promise<{ q?: string }> }) {
-  const { q } = await searchParams
+type SearchParams = { q?: string; space?: string; from?: string; to?: string; dur?: string }
+
+export default async function MeetingsPage({ searchParams }: { searchParams: Promise<SearchParams> }) {
+  const { q, space, from, to, dur } = await searchParams
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
 
+  const service = createServiceClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+  )
+
   let myProfileId: string | null = null
+  let spaces: { id: number; name: string; emoji: string }[] = []
+
   if (user?.email) {
-    const service = createServiceClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!,
-    )
-    const { data: myProfile } = await service.from('profiles').select('id').eq('email', user.email).single()
+    const [{ data: myProfile }, { data: mySpaces }] = await Promise.all([
+      service.from('profiles').select('id').eq('email', user.email).single(),
+      supabase.from('spaces').select('id, name, emoji').is('deleted_at', null).order('name'),
+    ])
     myProfileId = myProfile?.id ?? null
+    spaces = mySpaces ?? []
   }
 
   let query = supabase
     .from('meetings')
-    .select('id, title, created_at, duration_seconds, word_count, enhancement, attendees, user_id')
+    .select('id, title, created_at, duration_seconds, word_count, enhancement, attendees, user_id, space_id')
     .is('deleted_at', null)
     .order('created_at', { ascending: false })
-    .limit(50)
+    .limit(100)
 
-  if (q) {
-    query = query.textSearch('search_vector', q, { type: 'websearch', config: 'portuguese' })
+  if (q) query = query.textSearch('search_vector', q, { type: 'websearch', config: 'portuguese' })
+  if (space === 'none') query = query.is('space_id', null)
+  else if (space) query = query.eq('space_id', Number(space))
+  if (from) query = query.gte('created_at', new Date(from).toISOString())
+  if (to) {
+    const toDate = new Date(to)
+    toDate.setDate(toDate.getDate() + 1)
+    query = query.lt('created_at', toDate.toISOString())
   }
 
-  const { data: meetings } = await query
+  let { data: meetings } = await query
+
+  // Filtro por duração mínima (em minutos) — feito client-side pois Supabase não tem filtro em segundos direto
+  if (dur && meetings) {
+    const minSecs = Number(dur) * 60
+    meetings = meetings.filter(m => m.duration_seconds >= minSecs)
+  }
+
+  const hasFilters = !!(q || space || from || to || dur)
 
   return (
     <div className="p-8 max-w-4xl mx-auto">
@@ -56,14 +79,79 @@ export default async function MeetingsPage({ searchParams }: { searchParams: Pro
         </div>
       </div>
 
-      {/* Busca */}
-      <form className="mb-6">
+      {/* Filtros */}
+      <form className="mb-6 space-y-3">
         <input
           name="q"
           defaultValue={q}
           placeholder="Buscar em títulos e transcrições..."
           className="w-full bg-white/[0.03] border border-white/[0.08] rounded-xl px-4 py-2.5 text-sm text-white placeholder-neutral-600 outline-none focus:border-[#6C8EFF]/50 transition-colors"
         />
+        <div className="flex flex-wrap gap-2">
+          {/* Pasta */}
+          <select
+            name="space"
+            defaultValue={space ?? ''}
+            className="bg-white/[0.03] border border-white/[0.08] rounded-lg px-3 py-2 text-sm text-neutral-300 outline-none focus:border-[#6C8EFF]/50 transition-colors appearance-none cursor-pointer"
+          >
+            <option value="">Todas as pastas</option>
+            <option value="none">Sem pasta</option>
+            {spaces.map(s => (
+              <option key={s.id} value={String(s.id)}>{s.emoji} {s.name}</option>
+            ))}
+          </select>
+
+          {/* Data de */}
+          <div className="flex items-center gap-1.5">
+            <span className="text-xs text-neutral-600">De</span>
+            <input
+              type="date"
+              name="from"
+              defaultValue={from ?? ''}
+              className="bg-white/[0.03] border border-white/[0.08] rounded-lg px-3 py-2 text-sm text-neutral-300 outline-none focus:border-[#6C8EFF]/50 transition-colors"
+            />
+          </div>
+
+          {/* Data até */}
+          <div className="flex items-center gap-1.5">
+            <span className="text-xs text-neutral-600">até</span>
+            <input
+              type="date"
+              name="to"
+              defaultValue={to ?? ''}
+              className="bg-white/[0.03] border border-white/[0.08] rounded-lg px-3 py-2 text-sm text-neutral-300 outline-none focus:border-[#6C8EFF]/50 transition-colors"
+            />
+          </div>
+
+          {/* Duração mínima */}
+          <select
+            name="dur"
+            defaultValue={dur ?? ''}
+            className="bg-white/[0.03] border border-white/[0.08] rounded-lg px-3 py-2 text-sm text-neutral-300 outline-none focus:border-[#6C8EFF]/50 transition-colors appearance-none cursor-pointer"
+          >
+            <option value="">Qualquer duração</option>
+            <option value="5">+ 5 min</option>
+            <option value="15">+ 15 min</option>
+            <option value="30">+ 30 min</option>
+            <option value="60">+ 1 hora</option>
+          </select>
+
+          <button
+            type="submit"
+            className="px-4 py-2 bg-[#6C8EFF]/20 hover:bg-[#6C8EFF]/30 border border-[#6C8EFF]/30 rounded-lg text-sm text-[#6C8EFF] transition-colors"
+          >
+            Filtrar
+          </button>
+
+          {hasFilters && (
+            <a
+              href="/meetings"
+              className="px-4 py-2 bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.08] rounded-lg text-sm text-neutral-500 transition-colors"
+            >
+              Limpar
+            </a>
+          )}
+        </div>
       </form>
 
       <SpaceDropTargets />
@@ -73,7 +161,7 @@ export default async function MeetingsPage({ searchParams }: { searchParams: Pro
       <div className="bg-white/[0.03] border border-white/[0.06] rounded-2xl overflow-hidden">
         {!meetings || meetings.length === 0 ? (
           <p className="text-sm text-neutral-600 p-6">
-            {q ? `Nenhuma reunião encontrada para "${q}".` : 'Nenhuma reunião encontrada.'}
+            {hasFilters ? 'Nenhuma reunião encontrada com esses filtros.' : 'Nenhuma reunião encontrada.'}
           </p>
         ) : meetings.map((m, i) => {
           const summary = parseEnhancementSummary(m.enhancement)

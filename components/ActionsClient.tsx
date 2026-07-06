@@ -392,6 +392,12 @@ export function DetailModal({ action, onClose, onEdit, onDeleted, onStatusChange
 
 // ── Main Component ────────────────────────────────────────────────────────────
 
+const KANBAN_COLUMNS = [
+  { key: 'pendente',     label: 'Pendente',     color: 'border-orange-500/30 bg-orange-500/5' },
+  { key: 'em_andamento', label: 'Em andamento', color: 'border-blue-500/30 bg-blue-500/5' },
+  { key: 'concluida',   label: 'Concluída',    color: 'border-green-500/30 bg-green-500/5' },
+]
+
 export default function ActionsClient({ initial }: { initial: ActionItem[] }) {
   const [actions, setActions] = useState<ActionItem[]>(initial)
   const [search, setSearch] = useState('')
@@ -401,6 +407,8 @@ export default function ActionsClient({ initial }: { initial: ActionItem[] }) {
   const [filterArea, setFilterArea] = useState('')
   const [detail, setDetail] = useState<ActionItem | null>(null)
   const [editing, setEditing] = useState<ActionItem | null>(null)
+  const [view, setView] = useState<'table' | 'kanban'>('table')
+  const [dragOverCol, setDragOverCol] = useState<string | null>(null)
 
   // Realtime: atualiza ações quando outro usuário altera num space compartilhado
   useEffect(() => {
@@ -442,6 +450,16 @@ export default function ActionsClient({ initial }: { initial: ActionItem[] }) {
     setActions(prev => prev.filter(a => a.id !== id))
   }, [])
 
+  async function moveToStatus(actionId: number, newStatus: string) {
+    const action = actions.find(a => a.id === actionId)
+    if (!action || action.status === newStatus) return
+    const body: Record<string, unknown> = { status: newStatus, _event_type: 'status_change', _event_field: 'status', _event_old: action.status, _event_new: newStatus }
+    if (newStatus === 'concluida') body.done_at = new Date().toISOString()
+    else body.done_at = null
+    await fetch(`/api/actions/${actionId}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
+    updateAction({ ...action, status: newStatus, done_at: newStatus === 'concluida' ? new Date().toISOString() : null })
+  }
+
   const sel = 'bg-[#0E1016] border border-white/[0.08] rounded-lg px-3 py-1.5 text-xs text-neutral-400 outline-none focus:border-[#6C8EFF]/40'
 
   const pending = actions.filter(a => a.status === 'pendente').length
@@ -458,6 +476,15 @@ export default function ActionsClient({ initial }: { initial: ActionItem[] }) {
             <span className="text-xs bg-orange-500/10 text-orange-400 border border-orange-500/20 px-2 py-0.5 rounded-full">{pending} pendentes</span>
             <span className="text-xs bg-green-500/10 text-green-400 border border-green-500/20 px-2 py-0.5 rounded-full">{done} concluídas</span>
           </div>
+        </div>
+        {/* Toggle tabela / kanban */}
+        <div className="flex items-center gap-1 bg-white/[0.03] border border-white/[0.08] rounded-lg p-0.5">
+          <button onClick={() => setView('table')} className={`px-3 py-1.5 rounded-md text-xs transition-colors ${view === 'table' ? 'bg-white/[0.08] text-white' : 'text-neutral-500 hover:text-neutral-300'}`}>
+            Tabela
+          </button>
+          <button onClick={() => setView('kanban')} className={`px-3 py-1.5 rounded-md text-xs transition-colors ${view === 'kanban' ? 'bg-white/[0.08] text-white' : 'text-neutral-500 hover:text-neutral-300'}`}>
+            Kanban
+          </button>
         </div>
       </div>
 
@@ -501,8 +528,64 @@ export default function ActionsClient({ initial }: { initial: ActionItem[] }) {
         <span className="text-xs text-neutral-700 self-center ml-auto">{filtered.length} {filtered.length === 1 ? 'ação' : 'ações'}</span>
       </div>
 
+      {/* Kanban */}
+      {view === 'kanban' && (
+        <div className="grid grid-cols-3 gap-4 mb-6">
+          {KANBAN_COLUMNS.map(col => {
+            const colItems = filtered.filter(a => a.status === col.key)
+            return (
+              <div
+                key={col.key}
+                className={`rounded-2xl border p-3 min-h-[200px] transition-colors ${col.color} ${dragOverCol === col.key ? 'ring-2 ring-[#6C8EFF]/40' : ''}`}
+                onDragOver={e => { e.preventDefault(); setDragOverCol(col.key) }}
+                onDragLeave={() => setDragOverCol(null)}
+                onDrop={e => {
+                  e.preventDefault()
+                  setDragOverCol(null)
+                  const id = Number(e.dataTransfer.getData('actionId'))
+                  if (id) moveToStatus(id, col.key)
+                }}
+              >
+                <p className="text-[11px] font-semibold text-neutral-500 uppercase tracking-wider mb-3 px-1">
+                  {col.label} <span className="text-neutral-700 font-normal">({colItems.length})</span>
+                </p>
+                <div className="space-y-2">
+                  {colItems.map(a => (
+                    <div
+                      key={a.id}
+                      draggable
+                      onDragStart={e => e.dataTransfer.setData('actionId', String(a.id))}
+                      onClick={() => setDetail(a)}
+                      className="bg-white/[0.04] hover:bg-white/[0.07] border border-white/[0.06] rounded-xl p-3 cursor-grab active:cursor-grabbing transition-colors"
+                    >
+                      {a.meeting_title && (
+                        <p className="text-[10px] text-[#6C8EFF]/60 truncate mb-1">📋 {a.meeting_title}</p>
+                      )}
+                      <p className={`text-xs leading-snug ${a.status === 'concluida' ? 'line-through text-neutral-600' : 'text-neutral-200'}`}>{a.text}</p>
+                      <div className="flex flex-wrap gap-1 mt-2">
+                        <Badge map={PRIO_LABELS} colors={PRIO_COLORS} value={a.prioridade} />
+                        {a.owner && <span className="text-[10px] text-neutral-600 truncate max-w-[100px]">{a.owner}</span>}
+                        {a.due_date && a.status !== 'concluida' && (() => {
+                          const today = new Date().toISOString().slice(0, 10)
+                          if (a.due_date < today) return <span className="text-[10px] text-red-400">Em atraso</span>
+                          if (a.due_date === today) return <span className="text-[10px] text-amber-400">Vence hoje</span>
+                          return null
+                        })()}
+                      </div>
+                    </div>
+                  ))}
+                  {colItems.length === 0 && (
+                    <p className="text-xs text-neutral-700 px-1 py-4 text-center">Solte aqui</p>
+                  )}
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      )}
+
       {/* Table */}
-      <div className="bg-white/[0.02] border border-white/[0.06] rounded-2xl overflow-hidden">
+      <div className={`bg-white/[0.02] border border-white/[0.06] rounded-2xl overflow-hidden ${view === 'kanban' ? 'hidden' : ''}`}>
         {/* Header row */}
         <div className="grid grid-cols-[1fr_140px_100px_90px_90px_90px_110px] gap-2 px-5 py-2.5 border-b border-white/[0.06] bg-white/[0.02]">
           {['DESCRIÇÃO','RESPONSÁVEL','TIPO','PRIORIDADE','STATUS','CRIADO EM','PRAZO'].map(h => (
