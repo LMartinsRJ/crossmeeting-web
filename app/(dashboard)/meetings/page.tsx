@@ -1,6 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
 import { parseAttendees, parseEnhancementSummary } from '@/lib/parsers'
-import { createClient as createServiceClient } from '@supabase/supabase-js'
 import ImportTranscriptModal from '@/components/ImportTranscriptModal'
 import DraggableMeetingRow from '@/components/DraggableMeetingRow'
 import SpaceDropTargets from '@/components/SpaceDropTargets'
@@ -23,24 +22,17 @@ type SearchParams = { q?: string; space?: string; from?: string; to?: string; du
 export default async function MeetingsPage({ searchParams }: { searchParams: Promise<SearchParams> }) {
   const { q, space, from, to, dur } = await searchParams
   const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
 
-  const service = createServiceClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!,
-  )
+  // profiles_select_own: retorna o perfil do usuário autenticado
+  const { data: myProfile } = await supabase.from('profiles').select('id').maybeSingle()
+  const myProfileId = myProfile?.id ?? null
 
-  let myProfileId: string | null = null
-  let spaces: { id: number; name: string; emoji: string }[] = []
-
-  if (user?.email) {
-    const [{ data: myProfile }, { data: mySpaces }] = await Promise.all([
-      service.from('profiles').select('id').eq('email', user.email).single(),
-      supabase.from('spaces').select('id, name, emoji').is('deleted_at', null).order('name'),
-    ])
-    myProfileId = myProfile?.id ?? null
-    spaces = mySpaces ?? []
-  }
+  // RLS filtra automaticamente — apenas espaços visíveis ao usuário
+  const { data: mySpaces } = await supabase
+    .from('spaces')
+    .select('id, name, emoji')
+    .order('name')
+  const spaces = mySpaces ?? []
 
   let query = supabase
     .from('meetings')

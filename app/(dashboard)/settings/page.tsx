@@ -1,5 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import Link from 'next/link'
+import FirefliesCard from '@/components/FirefliesCard'
+import ApiKeyManager from '@/components/ApiKeyManager'
 
 const cloudUrl = 'https://gobnerbexyzktxhxuiju.supabase.co/functions/v1'
 
@@ -22,7 +24,12 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
     .is('revoked_at', null)
     .order('created_at', { ascending: false })
 
-  const activeKey = keys?.[0]
+  const { data: fireflyesCred } = await supabase
+    .from('integration_credentials')
+    .select('status, last_synced_at, synced_count')
+    .eq('source', 'fireflies')
+    .maybeSingle()
+
   const tabs = [
     { id: 'profile', label: 'Perfil' },
     { id: 'api', label: 'API & Integrações' },
@@ -87,52 +94,49 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
       {/* API & Integrações */}
       {tab === 'api' && (
         <div>
-          {/* Saída */}
+          {/* Saída — API Keys */}
           <section className="mb-10">
             <div className="mb-4">
               <h2 className="text-xs font-semibold text-neutral-500 uppercase tracking-wider">Saída — API Crossmeeting</h2>
-              <p className="text-xs text-neutral-600 mt-1">Qualquer sistema externo pode consumir suas transcrições usando sua chave de API.</p>
+              <p className="text-xs text-neutral-600 mt-1">
+                Use sua chave para acessar reuniões via REST API ou conectar agentes de IA via MCP.
+                Cada chave dá acesso somente às suas reuniões.
+              </p>
             </div>
 
-            <div className="bg-white/[0.03] border border-white/[0.06] rounded-2xl overflow-hidden mb-4">
-              {!activeKey ? (
-                <p className="text-sm text-neutral-600 p-5">Nenhuma chave encontrada. Abra o app desktop e faça login para gerar automaticamente.</p>
-              ) : (
-                <div className="px-5 py-4">
-                  <div className="flex items-center justify-between mb-3">
-                    <div>
-                      <p className="text-sm font-medium text-white">{activeKey.name}</p>
-                      <p className="text-xs text-neutral-600 mt-0.5">
-                        Criada em {new Date(activeKey.created_at).toLocaleDateString('pt-BR')}
-                        {activeKey.last_used_at && ` · Último uso ${new Date(activeKey.last_used_at).toLocaleDateString('pt-BR')}`}
-                      </p>
-                    </div>
-                    <span className="text-[10px] bg-green-500/10 text-green-500 border border-green-500/20 px-2 py-1 rounded-full">Ativa</span>
-                  </div>
-                  <div className="bg-black/30 rounded-xl px-4 py-2.5 font-mono text-xs text-neutral-400 flex items-center justify-between gap-4">
-                    <span className="text-white">{activeKey.key_prefix ?? 'crossmeeting_••••••••••••...'}</span>
-                    <span className="text-neutral-600 text-[10px] shrink-0">Authorization: Bearer &lt;chave-completa&gt;</span>
-                  </div>
-                  <p className="text-[11px] text-neutral-700 mt-2">A chave completa está em <span className="text-neutral-500">Configurações → API Key</span> no app desktop.</p>
-                </div>
-              )}
-            </div>
+            <ApiKeyManager initialKeys={(keys ?? []) as any} />
 
-            <div className="bg-white/[0.02] border border-white/[0.06] rounded-2xl p-5 mb-4">
-              <p className="text-xs text-neutral-500 mb-2 font-medium">REST API</p>
-              <pre className="text-[11px] text-neutral-400 font-mono leading-relaxed overflow-x-auto">{`GET  ${cloudUrl}/meetings
+            <div className="mt-6 space-y-3">
+              <div className="bg-white/[0.02] border border-white/[0.06] rounded-2xl p-5">
+                <p className="text-xs text-neutral-400 mb-2.5 font-medium">REST API — reuniões</p>
+                <pre className="text-[11px] text-neutral-500 font-mono leading-relaxed overflow-x-auto whitespace-pre-wrap">{`# Listar reuniões (até 100 com ?limit=N)
+GET  ${cloudUrl}/meetings
+
+# Busca full-text
+GET  ${cloudUrl}/meetings?q=standup
+
+# Reunião completa com transcrição e enhancement
 GET  ${cloudUrl}/meetings/:id
-GET  ${cloudUrl}/meetings?q=busca
 
+# Autenticação
 curl -H "Authorization: Bearer <sua-chave>" ${cloudUrl}/meetings`}</pre>
-            </div>
+              </div>
 
-            <div className="bg-white/[0.02] border border-white/[0.06] rounded-2xl p-5">
-              <p className="text-xs text-neutral-500 mb-2 font-medium">MCP Remoto (Claude / AI agents)</p>
-              <pre className="text-[11px] text-neutral-400 font-mono leading-relaxed overflow-x-auto">{`claude mcp add crossmeeting-cloud \\
+              <div className="bg-white/[0.02] border border-white/[0.06] rounded-2xl p-5">
+                <p className="text-xs text-neutral-400 mb-2.5 font-medium">MCP Remoto — para Claude Desktop, Claude Code e AI agents</p>
+                <pre className="text-[11px] text-neutral-500 font-mono leading-relaxed overflow-x-auto whitespace-pre-wrap">{`# Adicionar ao Claude Code
+claude mcp add crossmeeting \\
   --transport http \\
   --url ${cloudUrl}/mcp \\
-  --header "Authorization: Bearer <sua-chave>"`}</pre>
+  --header "Authorization: Bearer <sua-chave>"
+
+# Tools disponíveis:
+#   list_meetings       — lista suas reuniões (suporta ?q= e ?limit=)
+#   get_meeting         — detalhes completos com transcrição
+#   search_meetings     — full-text search
+#   get_action_items    — lista ações pendentes/em andamento/concluídas
+#   summarize_period    — resumo de reuniões em um intervalo de datas`}</pre>
+              </div>
             </div>
           </section>
 
@@ -143,7 +147,12 @@ curl -H "Authorization: Bearer <sua-chave>" ${cloudUrl}/meetings`}</pre>
               <p className="text-xs text-neutral-600 mt-1">Cole a API key de cada ferramenta para o Crossmeeting importar suas transcrições automaticamente.</p>
             </div>
             <div className="space-y-3">
-              {SOURCES.map((source) => (
+              <FirefliesCard
+                connected={fireflyesCred?.status === 'active'}
+                lastSynced={fireflyesCred?.last_synced_at ?? null}
+                syncedCount={fireflyesCred?.synced_count ?? 0}
+              />
+              {SOURCES.filter(s => s.id !== 'fireflies').map((source) => (
                 <div key={source.id} className="bg-white/[0.02] border border-white/[0.06] rounded-2xl p-5">
                   <div className="flex items-start gap-3 mb-4">
                     <span className="text-xl shrink-0 mt-0.5">{source.icon}</span>

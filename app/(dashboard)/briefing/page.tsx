@@ -1,7 +1,6 @@
 export const dynamic = 'force-dynamic'
 
 import { createClient } from '@/lib/supabase/server'
-import { createClient as createServiceClient } from '@supabase/supabase-js'
 import { unstable_cache } from 'next/cache'
 import Anthropic from '@anthropic-ai/sdk'
 import Link from 'next/link'
@@ -105,11 +104,6 @@ export default async function BriefingPage() {
   const hour = new Date().getHours()
   const greeting = hour < 12 ? 'Bom dia' : hour < 18 ? 'Boa tarde' : 'Boa noite'
 
-  const service = createServiceClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!,
-  )
-
   const today = new Date()
   today.setHours(0, 0, 0, 0)
   const todayIso = today.toISOString()
@@ -121,12 +115,12 @@ export default async function BriefingPage() {
   const in7Days = new Date(today)
   in7Days.setDate(in7Days.getDate() + 7)
 
-  const userEmail = user?.email ?? user?.user_metadata?.email as string | undefined
-  let profileId: string | null = null
-  if (userEmail) {
-    const { data: profile } = await service.from('profiles').select('id').eq('email', userEmail).maybeSingle()
-    profileId = profile?.id ?? null
-  }
+  const thisMonthStart = new Date(today.getFullYear(), today.getMonth(), 1).toISOString()
+  const lastMonthStart = new Date(today.getFullYear(), today.getMonth() - 1, 1).toISOString()
+
+  // profiles_select_own policy: retorna o perfil do usuário autenticado
+  const { data: profileRow } = await supabase.from('profiles').select('id').maybeSingle()
+  const profileId = profileRow?.id ?? null
 
   const [
     { data: todayMeetings },
@@ -135,6 +129,8 @@ export default async function BriefingPage() {
     { data: recentActionItems },
     { data: recentContacts },
     { data: upcomingEvents },
+    { data: thisMonthMeetings },
+    { data: lastMonthMeetingsData },
   ] = await Promise.all([
     supabase.from('meetings')
       .select('id, title, created_at, duration_seconds, enhancement')
@@ -150,23 +146,18 @@ export default async function BriefingPage() {
       .order('created_at', { ascending: false })
       .limit(20),
 
-    profileId
-      ? service.from('action_items')
-          .select('id, text, owner, due_date, done_at, meeting_id, meeting_title, created_at')
-          .eq('user_id', profileId)
-          .is('done_at', null)
-          .order('due_date', { ascending: true, nullsFirst: false })
-          .limit(50)
-      : Promise.resolve({ data: [] as any[] }),
+    // action_items_own policy filtra automaticamente por auth_profile_id()
+    supabase.from('action_items')
+      .select('id, text, owner, due_date, done_at, meeting_id, meeting_title, created_at')
+      .is('done_at', null)
+      .order('due_date', { ascending: true, nullsFirst: false })
+      .limit(50),
 
-    profileId
-      ? service.from('action_items')
-          .select('id, text, owner, due_date, done_at, meeting_title, created_at')
-          .eq('user_id', profileId)
-          .or(`created_at.gte.${last7Start.toISOString()},done_at.gte.${last7Start.toISOString()}`)
-          .order('created_at', { ascending: false })
-          .limit(30)
-      : Promise.resolve({ data: [] as any[] }),
+    supabase.from('action_items')
+      .select('id, text, owner, due_date, done_at, meeting_title, created_at')
+      .or(`created_at.gte.${last7Start.toISOString()},done_at.gte.${last7Start.toISOString()}`)
+      .order('created_at', { ascending: false })
+      .limit(30),
 
     supabase.from('contacts')
       .select('id, name, email, company, last_seen')
@@ -174,15 +165,24 @@ export default async function BriefingPage() {
       .order('last_seen', { ascending: false })
       .limit(8),
 
-    profileId
-      ? service.from('calendar_events')
-          .select('id, title, start_at, end_at, meeting_link, attendees, provider, recurring_event_id')
-          .eq('user_id', profileId)
-          .gte('start_at', todayIso)
-          .lte('start_at', in7Days.toISOString())
-          .order('start_at', { ascending: true })
-          .limit(10)
-      : Promise.resolve({ data: [] as any[] }),
+    // calendar_events_own policy filtra automaticamente por auth_profile_id()
+    supabase.from('calendar_events')
+      .select('id, title, start_at, end_at, meeting_link, attendees, provider, recurring_event_id')
+      .gte('start_at', todayIso)
+      .lte('start_at', in7Days.toISOString())
+      .order('start_at', { ascending: true })
+      .limit(10),
+
+    supabase.from('meetings')
+      .select('id, duration_seconds')
+      .gte('created_at', thisMonthStart)
+      .is('deleted_at', null),
+
+    supabase.from('meetings')
+      .select('id, duration_seconds')
+      .gte('created_at', lastMonthStart)
+      .lt('created_at', thisMonthStart)
+      .is('deleted_at', null),
   ])
 
   const overdueActions = (allActions ?? []).filter(a => getDueStatus(a.due_date, a.done_at) === 'overdue')
@@ -252,6 +252,16 @@ export default async function BriefingPage() {
   }) : ''
 
   const todayCount = todayMeetings?.length ?? 0
+
+  const monthMeetingCount = thisMonthMeetings?.length ?? 0
+  const lastMonthMeetingCount = lastMonthMeetingsData?.length ?? 0
+  const diffMeetings = monthMeetingCount - lastMonthMeetingCount
+  const monthSecs = (thisMonthMeetings ?? []).reduce((acc, m) => acc + ((m as any).duration_seconds ?? 0), 0)
+  const monthHours = Math.floor(monthSecs / 3600)
+  const monthMinRem = Math.floor((monthSecs % 3600) / 60)
+  const lastMonthSecs = (lastMonthMeetingsData ?? []).reduce((acc, m) => acc + ((m as any).duration_seconds ?? 0), 0)
+  const diffHours = monthHours - Math.floor(lastMonthSecs / 3600)
+  const monthLabel = today.toLocaleDateString('pt-BR', { month: 'long' })
 
   return (
     <div className="p-8 max-w-4xl mx-auto">
@@ -399,6 +409,40 @@ export default async function BriefingPage() {
         linkLabel={`${pendingActions.length} ações →`}
         maxVisible={8}
       />
+
+      {/* ── Métricas do mês ── */}
+      <div className="mb-6">
+        <h2 className="text-xs font-semibold text-neutral-500 uppercase tracking-wider mb-3 capitalize">Este mês — {monthLabel}</h2>
+        <div className="grid grid-cols-3 gap-3">
+          <div className="bg-white/[0.03] border border-white/[0.06] rounded-2xl p-5">
+            <p className="text-xs text-neutral-500 mb-2">Reuniões</p>
+            <p className="text-3xl font-semibold text-white">{monthMeetingCount}</p>
+            {diffMeetings !== 0 && (
+              <p className={`text-xs mt-1 ${diffMeetings > 0 ? 'text-green-500' : 'text-red-400'}`}>
+                {diffMeetings > 0 ? '+' : ''}{diffMeetings} vs mês anterior
+              </p>
+            )}
+          </div>
+          <div className="bg-white/[0.03] border border-white/[0.06] rounded-2xl p-5">
+            <p className="text-xs text-neutral-500 mb-2">Horas gravadas</p>
+            <p className="text-3xl font-semibold text-white">
+              {monthHours}h{monthMinRem > 0 ? <span className="text-lg text-neutral-400"> {monthMinRem}min</span> : ''}
+            </p>
+            {diffHours !== 0 && (
+              <p className={`text-xs mt-1 ${diffHours > 0 ? 'text-green-500' : 'text-red-400'}`}>
+                {diffHours > 0 ? '+' : ''}{diffHours}h vs mês anterior
+              </p>
+            )}
+          </div>
+          <div className="bg-white/[0.03] border border-white/[0.06] rounded-2xl p-5">
+            <p className="text-xs text-neutral-500 mb-2">Média por reunião</p>
+            <p className="text-3xl font-semibold text-white">
+              {monthMeetingCount > 0 ? `${Math.round(monthSecs / 60 / monthMeetingCount)}` : '—'}
+              {monthMeetingCount > 0 && <span className="text-lg text-neutral-400"> min</span>}
+            </p>
+          </div>
+        </div>
+      </div>
 
       {/* ── Atividades dos últimos 7 dias ── */}
       <div className="mb-6">

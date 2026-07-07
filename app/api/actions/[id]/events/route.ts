@@ -1,21 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
-import { createClient as createServiceClient } from '@supabase/supabase-js'
+import { getAuthContext, unauthorized, notFound } from '@/lib/auth'
 
-function getService() {
-  return createServiceClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!,
-  )
-}
-
-export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user?.email) return NextResponse.json({ error: 'Não autenticado.' }, { status: 401 })
+export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const { supabase, user } = await getAuthContext()
+  if (!user) return unauthorized()
 
   const { id } = await params
-  const { data } = await getService()
+  // action_item_events_own policy filtra por ações do usuário
+  const { data } = await supabase
     .from('action_item_events')
     .select('*')
     .eq('action_item_id', id)
@@ -25,21 +17,19 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
 }
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user?.email) return NextResponse.json({ error: 'Não autenticado.' }, { status: 401 })
-
-  const { data: profile } = await getService()
-    .from('profiles').select('id, name').eq('email', user.email).single()
-  if (!profile) return NextResponse.json({ error: 'Perfil não encontrado.' }, { status: 404 })
+  const { supabase, user, profile } = await getAuthContext()
+  if (!user) return unauthorized()
+  if (!profile) return notFound('Perfil não encontrado.')
 
   const { id } = await params
   const { comment } = await req.json()
 
-  const { data, error } = await getService().from('action_item_events').insert({
+  const { data: profileFull } = await supabase.from('profiles').select('id, name').maybeSingle()
+
+  const { data, error } = await supabase.from('action_item_events').insert({
     action_item_id: Number(id),
     user_id: profile.id,
-    user_name: profile.name ?? user.email,
+    user_name: profileFull?.name ?? user.email,
     type: 'comment',
     comment,
   }).select().single()

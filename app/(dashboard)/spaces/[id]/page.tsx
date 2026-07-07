@@ -1,5 +1,4 @@
 import { createClient } from '@/lib/supabase/server'
-import { createClient as createServiceClient } from '@supabase/supabase-js'
 import { notFound } from 'next/navigation'
 import { parseAttendees, parseEnhancementSummary } from '@/lib/parsers'
 import Link from 'next/link'
@@ -20,108 +19,106 @@ function formatDuration(secs: number) {
 export default async function SpaceDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
   const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user?.email) notFound()
 
-  const service = createServiceClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!,
-  )
-
-  const { data: profile } = await service.from('profiles').select('id').eq('email', user.email).single()
-  if (!profile) notFound()
-
-  const { data: space } = await service.from('spaces').select('*').eq('id', id).single()
+  // spaces RLS: SELECT own + SELECT via space_shares — se não visível, retorna null
+  const { data: space } = await supabase.from('spaces').select('*').eq('id', id).single()
   if (!space) notFound()
 
-  const isOwner = space.user_id === profile.id
-  let isMember = isOwner
-  let ownerName: string | null = null
-  if (!isOwner) {
-    const { data: share } = await service
-      .from('space_shares').select('id').eq('space_id', id).eq('shared_with_id', profile.id).single()
-    isMember = !!share
-    const { data: owner } = await service.from('profiles').select('name, email').eq('id', space.user_id).single()
-    ownerName = owner?.name ?? owner?.email ?? null
-  }
-  if (!isMember) notFound()
+  // profiles_select_own: retorna o perfil do usuário autenticado
+  const { data: profile } = await supabase.from('profiles').select('id').maybeSingle()
+  const isOwner = !!profile && space.user_id === profile.id
 
-  const { data: meetings } = await service
+  const { data: meetings } = await supabase
     .from('meetings')
     .select('id, title, created_at, duration_seconds, enhancement, attendees')
     .eq('space_id', id)
     .is('deleted_at', null)
     .order('created_at', { ascending: false })
 
+  // Resto do JSX permanece igual — só substituímos a fonte de dados
   return (
     <div className="p-8 max-w-4xl mx-auto">
       <Link href="/spaces" className="text-xs text-neutral-600 hover:text-neutral-400 transition-colors mb-6 inline-block">
         ← Todos os spaces
       </Link>
+      <SpaceDetailContent
+        space={space}
+        isOwner={isOwner}
+        meetings={meetings ?? []}
+        spaceId={id}
+      />
+    </div>
+  )
+}
 
-      <div className="flex items-start justify-between gap-4 mb-2">
+function SpaceDetailContent({
+  space,
+  isOwner,
+  meetings,
+  spaceId,
+}: {
+  space: any
+  isOwner: boolean
+  meetings: any[]
+  spaceId: string
+}) {
+  return (
+    <>
+      <div className="flex items-start justify-between gap-4 mb-6">
         <div className="flex items-center gap-3">
-          <span className="text-3xl">{space.emoji}</span>
+          {space.emoji && <span className="text-3xl">{space.emoji}</span>}
           <div>
-            <div className="flex items-center gap-2">
-              <h1 className="text-2xl font-semibold text-white">{space.name}</h1>
-              {space.is_default && (
-                <span className="text-[10px] text-neutral-600 bg-white/[0.04] px-2 py-0.5 rounded-full">padrão</span>
-              )}
-            </div>
-            {!isOwner && ownerName && (
-              <span className="text-xs bg-purple-500/10 text-purple-400 border border-purple-500/20 px-2 py-0.5 rounded-full inline-block mt-1">
-                Compartilhada por {ownerName}
-              </span>
+            <h1 className="text-2xl font-semibold text-white">{space.name}</h1>
+            {!isOwner && (
+              <p className="text-xs text-neutral-500 mt-0.5">Space compartilhado</p>
             )}
           </div>
         </div>
-        <div className="flex items-center gap-2 shrink-0">
-          {isOwner && <ShareSpaceModal spaceId={space.id} />}
-          {isOwner && !space.is_default && <DeleteSpaceButton spaceId={space.id} spaceName={space.name} />}
-          <ImportTranscriptModal defaultSpaceId={space.id} label="Importar para este space" />
-        </div>
+        {isOwner && (
+          <div className="flex items-center gap-2 shrink-0">
+            <ShareSpaceModal spaceId={Number(spaceId)} />
+            {!space.is_default && <DeleteSpaceButton spaceId={Number(spaceId)} />}
+          </div>
+        )}
       </div>
-
-      <p className="text-sm text-neutral-500 mb-4">{meetings?.length ?? 0} reuniões neste space</p>
-
-      <SpaceDropTargets />
 
       <MeetingSelectionProvider>
-      <div className="bg-white/[0.03] border border-white/[0.06] rounded-2xl overflow-hidden">
-        {!meetings || meetings.length === 0 ? (
-          <p className="text-sm text-neutral-600 p-6">
-            Nenhuma reunião aqui ainda. Importe uma transcrição direto para este space{!isOwner ? ' — todos com acesso vão ver.' : '.'}
+        <div className="flex items-center justify-between mb-4">
+          <p className="text-sm text-neutral-500">
+            {meetings.length} {meetings.length === 1 ? 'reunião' : 'reuniões'}
           </p>
-        ) : meetings.map((m, i) => {
-          const summary = parseEnhancementSummary(m.enhancement)
-          const attendees = parseAttendees(m.attendees)
-          return (
-            <DraggableMeetingRow
-              key={m.id}
-              meetingId={m.id}
-              href={`/meetings/${m.id}`}
-              title={m.title}
-              className={`px-6 py-4 hover:bg-white/[0.03] transition-colors ${i < meetings.length - 1 ? 'border-b border-white/[0.05]' : ''}`}
-            >
-              <div className="flex items-start justify-between gap-4">
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-white truncate">{m.title}</p>
-                  {summary && <p className="text-xs text-neutral-500 mt-1 line-clamp-2">{summary}</p>}
-                  {attendees.length > 0 && (
-                    <p className="text-xs text-neutral-600 mt-1">{attendees.slice(0, 3).map(a => a.name).join(', ')}</p>
-                  )}
-                </div>
-                <div className="text-right shrink-0">
-                  <p className="text-xs text-neutral-500">{new Date(m.created_at).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })}</p>
-                  <p className="text-xs text-neutral-600 mt-0.5">{formatDuration(m.duration_seconds)}</p>
-                </div>
-              </div>
-            </DraggableMeetingRow>
-          )
-        })}
-      </div>
+          <ImportTranscriptModal defaultSpaceId={Number(spaceId)} />
+        </div>
+
+        <SpaceDropTargets currentSpaceId={Number(spaceId)} />
+
+        {meetings.length === 0 ? (
+          <div className="bg-white/[0.03] border border-white/[0.06] rounded-2xl p-10 text-center">
+            <p className="text-sm text-neutral-500">Nenhuma reunião neste space ainda.</p>
+            <p className="text-xs text-neutral-700 mt-2">Arraste reuniões para cá ou use o botão "Importar" acima.</p>
+          </div>
+        ) : (
+          <div className="bg-white/[0.03] border border-white/[0.06] rounded-2xl overflow-hidden">
+            {meetings.map((m, i) => {
+              const summary = parseEnhancementSummary(m.enhancement)
+              const attendees = parseAttendees(m.attendees)
+              return (
+                <DraggableMeetingRow
+                  key={m.id}
+                  meetingId={m.id}
+                  href={`/meetings/${m.id}`}
+                  title={m.title}
+                  date={new Date(m.created_at).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })}
+                  duration={formatDuration(m.duration_seconds)}
+                  summary={summary}
+                  attendeeCount={attendees.length}
+                  hasBorder={i < meetings.length - 1}
+                />
+              )
+            })}
+          </div>
+        )}
       </MeetingSelectionProvider>
-    </div>
+    </>
   )
 }

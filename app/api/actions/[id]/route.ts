@@ -1,48 +1,31 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
-import { createClient as createServiceClient } from '@supabase/supabase-js'
-
-function getService() {
-  return createServiceClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!,
-  )
-}
-
-async function getProfileId(email: string) {
-  const { data } = await getService().from('profiles').select('id, name').eq('email', email).single()
-  return data
-}
+import { getAuthContext, unauthorized, notFound } from '@/lib/auth'
 
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user?.email) return NextResponse.json({ error: 'Não autenticado.' }, { status: 401 })
-
-  const profile = await getProfileId(user.email)
-  if (!profile) return NextResponse.json({ error: 'Perfil não encontrado.' }, { status: 404 })
+  const { supabase, user, profile } = await getAuthContext()
+  if (!user) return unauthorized()
+  if (!profile) return notFound('Perfil não encontrado.')
 
   const { id } = await params
   const body = await req.json()
   const { _event_type, _event_field, _event_old, _event_new, _comment, ...fields } = body
 
-  // Update action
-  const { data: updated, error } = await getService()
+  // action_items_own policy garante que só o dono pode atualizar
+  const { data: updated, error } = await supabase
     .from('action_items')
     .update({ ...fields, updated_at: new Date().toISOString() })
     .eq('id', id)
-    .eq('user_id', profile.id)
     .select()
     .single()
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
-  // Log event
   if (_event_type) {
-    await getService().from('action_item_events').insert({
+    const { data: profileFull } = await supabase.from('profiles').select('id, name').maybeSingle()
+    await supabase.from('action_item_events').insert({
       action_item_id: Number(id),
       user_id: profile.id,
-      user_name: profile.name ?? user.email,
+      user_name: profileFull?.name ?? user.email,
       type: _event_type,
       field: _event_field ?? null,
       old_value: _event_old ?? null,
@@ -54,21 +37,13 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   return NextResponse.json(updated)
 }
 
-export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user?.email) return NextResponse.json({ error: 'Não autenticado.' }, { status: 401 })
-
-  const profile = await getProfileId(user.email)
-  if (!profile) return NextResponse.json({ error: 'Perfil não encontrado.' }, { status: 404 })
+export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const { supabase, user } = await getAuthContext()
+  if (!user) return unauthorized()
 
   const { id } = await params
-  const { error } = await getService()
-    .from('action_items')
-    .delete()
-    .eq('id', id)
-    .eq('user_id', profile.id)
-
+  // action_items_own policy garante que só o dono pode deletar
+  const { error } = await supabase.from('action_items').delete().eq('id', id)
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   return NextResponse.json({ ok: true })
 }

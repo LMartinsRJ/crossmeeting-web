@@ -1,5 +1,4 @@
 import { createClient } from '@/lib/supabase/server'
-import { createClient as createServiceClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
 
 export async function GET(request: Request) {
@@ -11,20 +10,16 @@ export async function GET(request: Request) {
     const supabase = await createClient()
     const { data, error } = await supabase.auth.exchangeCodeForSession(code)
     if (!error && data.session) {
-      // Salva o provider_token de calendário para uso posterior no sync
       const { session, user } = data
       if (session.provider_token && user?.email) {
         try {
-          const service = createServiceClient(
-            process.env.NEXT_PUBLIC_SUPABASE_URL!,
-            process.env.SUPABASE_SERVICE_ROLE_KEY!,
-          )
           const provider = user.app_metadata?.provider ?? 'google'
           const isGoogle = provider === 'google'
           const isMicrosoft = provider === 'azure'
 
           if (isGoogle || isMicrosoft) {
-            await service.from('profiles').update({
+            // profiles_update_own policy: UPDATE WHERE email = auth.email()
+            await supabase.from('profiles').update({
               [isGoogle ? 'google_calendar_token' : 'microsoft_calendar_token']: session.provider_token,
               ...(session.provider_refresh_token ? {
                 [isGoogle ? 'google_calendar_refresh' : 'microsoft_calendar_token']: session.provider_refresh_token,

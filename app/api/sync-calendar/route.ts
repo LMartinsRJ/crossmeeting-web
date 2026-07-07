@@ -1,13 +1,5 @@
 import { NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
-import { createClient as createServiceClient } from '@supabase/supabase-js'
-
-function getService() {
-  return createServiceClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!,
-  )
-}
+import { getAuthContext, unauthorized, notFound } from '@/lib/auth'
 
 // Busca eventos do Google Calendar (próximos 7 dias)
 async function fetchGoogleEvents(token: string) {
@@ -52,7 +44,6 @@ async function fetchMicrosoftEvents(token: string) {
   return { events: data.value ?? [], expired: false }
 }
 
-// Extrai link de reunião de um evento Google
 function extractGoogleMeetingLink(item: any): string | null {
   if (item.hangoutLink) return item.hangoutLink
   const loc = item.location ?? ''
@@ -61,7 +52,6 @@ function extractGoogleMeetingLink(item: any): string | null {
   return match ? match[0] : null
 }
 
-// Extrai link de reunião de um evento Microsoft
 function extractMicrosoftMeetingLink(item: any): string | null {
   if (item.onlineMeeting?.joinUrl) return item.onlineMeeting.joinUrl
   const loc = item.location?.displayName ?? ''
@@ -71,29 +61,27 @@ function extractMicrosoftMeetingLink(item: any): string | null {
 }
 
 export async function POST() {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user?.email) return NextResponse.json({ error: 'Não autenticado.' }, { status: 401 })
+  const { supabase, user, profile } = await getAuthContext()
+  if (!user) return unauthorized()
+  if (!profile) return notFound('Perfil não encontrado.')
 
-  const service = getService()
-  const { data: profile } = await service
+  // profiles_select_own policy: retorna só o perfil do usuário autenticado
+  const { data: profileData } = await supabase
     .from('profiles')
     .select('id, calendar_provider, google_calendar_token, microsoft_calendar_token')
-    .eq('email', user.email)
-    .single()
+    .maybeSingle()
 
-  if (!profile?.id) return NextResponse.json({ error: 'Perfil não encontrado.' }, { status: 404 })
+  if (!profileData) return notFound('Perfil não encontrado.')
 
-  const provider = profile.calendar_provider
+  const provider = profileData.calendar_provider
   const token = provider === 'google'
-    ? profile.google_calendar_token
-    : profile.microsoft_calendar_token
+    ? profileData.google_calendar_token
+    : profileData.microsoft_calendar_token
 
   if (!token) {
     return NextResponse.json({ status: 'no_token', message: 'Faça login novamente para conectar o calendário.' })
   }
 
-  // Busca eventos do provedor
   const result = provider === 'google'
     ? await fetchGoogleEvents(token)
     : await fetchMicrosoftEvents(token)
@@ -108,7 +96,6 @@ export async function POST() {
   const events = result.events
   if (events.length === 0) return NextResponse.json({ status: 'ok', synced: 0 })
 
-  // Normaliza e faz upsert na tabela calendar_events
   const rows = events.map((item: any) => {
     if (provider === 'google') {
       const startAt = item.start?.dateTime ?? item.start?.date
@@ -145,7 +132,8 @@ export async function POST() {
     }
   }).filter((r: any) => r.start_at && r.end_at)
 
-  const { error } = await service
+  // calendar_events_own policy (ALL) permite upsert com sessão do usuário
+  const { error } = await supabase
     .from('calendar_events')
     .upsert(rows, { onConflict: 'id' })
 

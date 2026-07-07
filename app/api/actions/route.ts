@@ -1,25 +1,14 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
-import { createClient as createServiceClient } from '@supabase/supabase-js'
+import { NextResponse } from 'next/server'
+import { getAuthContext, unauthorized } from '@/lib/auth'
 
-export async function GET(req: NextRequest) {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user?.email) return NextResponse.json({ error: 'Não autenticado.' }, { status: 401 })
+export async function GET() {
+  const { supabase, user } = await getAuthContext()
+  if (!user) return unauthorized()
 
-  const service = createServiceClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!,
-  )
-
-  const { data: profile } = await service
-    .from('profiles').select('id').eq('email', user.email).single()
-  if (!profile) return NextResponse.json({ error: 'Perfil não encontrado.' }, { status: 404 })
-
-  const { data } = await service
+  // action_items_own policy filtra automaticamente por auth_profile_id()
+  const { data } = await supabase
     .from('action_items')
     .select('*')
-    .eq('user_id', profile.id)
     .order('created_at', { ascending: false })
 
   return NextResponse.json(data ?? [])

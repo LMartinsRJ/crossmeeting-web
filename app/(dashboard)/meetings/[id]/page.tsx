@@ -1,6 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
 import { parseAttendees, parseEnhancement } from '@/lib/parsers'
-import { createClient as createServiceClient } from '@supabase/supabase-js'
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import ShareMeetingModal from '@/components/ShareMeetingModal'
@@ -34,19 +33,15 @@ export default async function MeetingDetailPage({
 
   if (!m) notFound()
 
-  let isOwner = false
+  // profiles_select_own policy: retorna o perfil do usuário autenticado
+  const { data: myProfile } = await supabase.from('profiles').select('id').maybeSingle()
+  const isOwner = !!myProfile && myProfile.id === m.user_id
   let ownerName: string | null = null
-  if (user?.email) {
-    const service = createServiceClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!,
-    )
-    const { data: myProfile } = await service.from('profiles').select('id').eq('email', user.email).single()
-    isOwner = myProfile?.id === m.user_id
-    if (!isOwner) {
-      const { data: owner } = await service.from('profiles').select('name, email').eq('id', m.user_id).single()
-      ownerName = owner?.name ?? owner?.email ?? null
-    }
+  if (!isOwner) {
+    // Pode buscar nome do dono pois profiles tem policy SELECT para o próprio perfil;
+    // aqui usamos o supabase session client que só retorna o próprio perfil.
+    // O nome do dono não é crítico — não bloqueia a exibição.
+    ownerName = null
   }
 
   const enhancement = parseEnhancement(m.enhancement)

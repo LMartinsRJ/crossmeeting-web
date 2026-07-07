@@ -1,5 +1,4 @@
 import { createClient } from '@/lib/supabase/server'
-import { createClient as createServiceClient } from '@supabase/supabase-js'
 import Link from 'next/link'
 import TrashActions from './TrashActions'
 
@@ -16,28 +15,14 @@ function daysUntilPurge(deletedAt: string): number {
 
 export default async function TrashPage() {
   const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
 
-  const service = createServiceClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!,
-  )
-
-  let profileId: string | null = null
-  if (user?.email) {
-    const { data: profile } = await service.from('profiles').select('id').eq('email', user.email).maybeSingle()
-    profileId = profile?.id ?? null
-  }
-
-  const { data: meetings } = profileId
-    ? await service
-        .from('meetings')
-        .select('id, title, created_at, duration_seconds, deleted_at')
-        .eq('user_id', profileId)
-        .not('deleted_at', 'is', null)
-        .order('deleted_at', { ascending: false })
-        .limit(100)
-    : { data: [] as any[] }
+  // meetings_select_own policy filtra automaticamente por auth_profile_id()
+  const { data: meetings } = await supabase
+    .from('meetings')
+    .select('id, title, created_at, duration_seconds, deleted_at')
+    .not('deleted_at', 'is', null)
+    .order('deleted_at', { ascending: false })
+    .limit(100)
 
   return (
     <div className="p-8 max-w-4xl mx-auto">

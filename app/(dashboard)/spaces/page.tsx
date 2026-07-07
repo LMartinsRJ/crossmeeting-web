@@ -1,50 +1,47 @@
 import { createClient } from '@/lib/supabase/server'
-import { createClient as createServiceClient } from '@supabase/supabase-js'
 import CreateSpaceModal from '@/components/CreateSpaceModal'
 import SpaceCard from '@/components/SpaceCard'
 import { getOrCreateDefaultSpace } from '@/lib/spaces'
 
 export default async function SpacesPage() {
   const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
 
-  const service = createServiceClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!,
-  )
+  // profiles_select_own policy: retorna o perfil do usuário autenticado
+  const { data: profile } = await supabase.from('profiles').select('id').maybeSingle()
+  if (profile) await getOrCreateDefaultSpace(supabase, profile.id)
 
-  let owned: any[] = []
-  let shared: any[] = []
+  // spaces RLS: SELECT own + shared
+  const [{ data: ownedSpaces }, { data: sharedRows }] = await Promise.all([
+    supabase.from('spaces').select('id, name, emoji, created_at, is_default')
+      .eq('user_id', profile?.id ?? '')
+      .order('is_default', { ascending: false })
+      .order('name'),
+    supabase.from('space_shares')
+      .select('space_id, owner_id, spaces(id, name, emoji, created_at)')
+      .eq('shared_with_id', profile?.id ?? ''),
+  ])
 
-  if (user?.email) {
-    const { data: profile } = await service.from('profiles').select('id').eq('email', user.email).single()
-    if (profile) {
-      await getOrCreateDefaultSpace(service, profile.id)
+  const owned = ownedSpaces ?? []
 
-      const [{ data: ownedSpaces }, { data: sharedRows }] = await Promise.all([
-        service.from('spaces').select('id, name, emoji, created_at, is_default').eq('user_id', profile.id)
-          .order('is_default', { ascending: false }).order('name'),
-        service.from('space_shares').select('space_id, owner_id, spaces(id, name, emoji, created_at)').eq('shared_with_id', profile.id),
-      ])
-      owned = ownedSpaces ?? []
+  const ownerIds = [...new Set((sharedRows ?? []).map((r: any) => r.owner_id))]
+  const { data: owners } = ownerIds.length
+    ? await supabase.from('profiles').select('id, name, email').in('id', ownerIds)
+    : { data: [] }
+  const ownerMap = new Map((owners ?? []).map((o: any) => [o.id, o.name ?? o.email]))
 
-      const ownerIds = [...new Set((sharedRows ?? []).map((r: any) => r.owner_id))]
-      const { data: owners } = ownerIds.length
-        ? await service.from('profiles').select('id, name, email').in('id', ownerIds)
-        : { data: [] }
-      const ownerMap = new Map((owners ?? []).map((o: any) => [o.id, o.name ?? o.email]))
-
-      shared = (sharedRows ?? [])
-        .filter((r: any) => r.spaces)
-        .map((r: any) => ({ ...r.spaces, ownerName: ownerMap.get(r.owner_id) ?? null }))
-    }
-  }
+  const shared = (sharedRows ?? [])
+    .filter((r: any) => r.spaces)
+    .map((r: any) => ({ ...r.spaces, ownerName: ownerMap.get(r.owner_id) ?? null }))
 
   // Conta reuniões por pasta
   const allIds = [...owned, ...shared].map(s => s.id)
   const counts = new Map<number, number>()
   if (allIds.length > 0) {
-    const { data: meetingsBySpace } = await service.from('meetings').select('space_id').in('space_id', allIds).is('deleted_at', null)
+    const { data: meetingsBySpace } = await supabase
+      .from('meetings')
+      .select('space_id')
+      .in('space_id', allIds)
+      .is('deleted_at', null)
     for (const m of meetingsBySpace ?? []) {
       counts.set(m.space_id, (counts.get(m.space_id) ?? 0) + 1)
     }
