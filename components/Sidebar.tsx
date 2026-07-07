@@ -15,6 +15,7 @@ const NAV = [
   { href: '/spaces',     label: 'Spaces',            icon: '📁' },
   { href: '/people',     label: 'Pessoas',           icon: '◉' },
   { href: '/companies',  label: 'Empresas',          icon: '◫' },
+  { href: '/analytics',  label: 'Analytics',         icon: '◱' },
 ]
 
 const SHARES_SEEN_KEY = 'cm_shares_seen_at'

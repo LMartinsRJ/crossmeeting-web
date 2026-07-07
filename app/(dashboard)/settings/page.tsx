@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import Link from 'next/link'
 import FirefliesCard from '@/components/FirefliesCard'
 import ApiKeyManager from '@/components/ApiKeyManager'
+import WebhookManager from '@/components/WebhookManager'
 
 const cloudUrl = 'https://gobnerbexyzktxhxuiju.supabase.co/functions/v1'
 
@@ -30,9 +31,15 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
     .eq('source', 'fireflies')
     .maybeSingle()
 
+  const { data: webhooks } = await supabase
+    .from('webhook_endpoints')
+    .select('id, name, url, events, status, last_triggered_at, error_count, last_error')
+    .order('created_at', { ascending: false })
+
   const tabs = [
     { id: 'profile', label: 'Perfil' },
     { id: 'api', label: 'API & Integrações' },
+    { id: 'webhooks', label: 'Webhooks' },
   ]
 
   return (
@@ -179,6 +186,53 @@ claude mcp add crossmeeting \\
               ))}
             </div>
           </section>
+        </div>
+      )}
+
+      {/* Webhooks */}
+      {tab === 'webhooks' && (
+        <div>
+          <div className="mb-6">
+            <h2 className="text-sm font-medium text-white mb-1">Webhooks de saída</h2>
+            <p className="text-xs text-neutral-500 leading-relaxed">
+              Receba notificações em tempo real quando uma ação é concluída ou o briefing matinal é enviado.
+              O Crossmeeting faz um POST para a URL configurada com um payload JSON assinado.
+            </p>
+          </div>
+
+          <WebhookManager initialWebhooks={(webhooks ?? []) as any} />
+
+          <div className="mt-8 bg-white/[0.02] border border-white/[0.06] rounded-2xl p-5">
+            <p className="text-xs text-neutral-400 mb-3 font-medium">Formato do payload</p>
+            <pre className="text-[11px] text-neutral-500 font-mono leading-relaxed overflow-x-auto whitespace-pre-wrap">{`// Evento: ação concluída
+{
+  "event": "action_done",
+  "timestamp": "2026-07-07T10:30:00Z",
+  "data": {
+    "id": 42,
+    "text": "Enviar proposta para o cliente",
+    "owner": "Leandro",
+    "due_date": "2026-07-07",
+    "meeting_id": 18,
+    "completed_at": "2026-07-07T10:30:00Z"
+  }
+}
+
+// Evento: briefing enviado
+{
+  "event": "briefing_ready",
+  "timestamp": "2026-07-07T07:00:00Z",
+  "data": {
+    "date": "2026-07-07",
+    "meeting_count": 2,
+    "action_count": 3,
+    "overdue_count": 1
+  }
+}
+
+// Verificação de assinatura (quando secret configurado)
+X-Crossmeeting-Signature: sha256=<HMAC-SHA256(secret, body)>`}</pre>
+          </div>
         </div>
       )}
     </div>

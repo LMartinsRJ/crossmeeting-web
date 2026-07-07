@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getAuthContext, unauthorized, notFound } from '@/lib/auth'
+import { fireWebhooks } from '@/lib/webhooks'
 
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { supabase, user, profile } = await getAuthContext()
@@ -19,6 +20,18 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     .single()
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
+  // Dispara webhook quando ação é concluída
+  if (fields.status === 'done' && profile) {
+    fireWebhooks(supabase, profile.id, 'action_done', {
+      id: updated.id,
+      text: updated.text,
+      owner: updated.owner ?? null,
+      due_date: updated.due_date ?? null,
+      meeting_id: updated.meeting_id ?? null,
+      completed_at: new Date().toISOString(),
+    }).catch(() => {}) // fire-and-forget, não bloqueia resposta
+  }
 
   if (_event_type) {
     const { data: profileFull } = await supabase.from('profiles').select('id, name').maybeSingle()
