@@ -60,7 +60,7 @@ const PRIO_COLORS: Record<string, string> = {
 function Badge({ map, colors, value }: { map: Record<string,string>, colors: Record<string,string>, value: string }) {
   return (
     <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded border ${colors[value] ?? 'bg-neutral-500/10 text-neutral-400 border-neutral-500/20'}`}>
-      {map[value] ?? value.toUpperCase()}
+      {map[value] ?? (value ?? '').toUpperCase()}
     </span>
   )
 }
