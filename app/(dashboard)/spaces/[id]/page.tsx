@@ -77,7 +77,7 @@ function SpaceDetailContent({
         {isOwner && (
           <div className="flex items-center gap-2 shrink-0">
             <ShareSpaceModal spaceId={Number(spaceId)} />
-            {!space.is_default && <DeleteSpaceButton spaceId={Number(spaceId)} />}
+            {!space.is_default && <DeleteSpaceButton spaceId={Number(spaceId)} spaceName={space.name} />}
           </div>
         )}
       </div>
@@ -90,7 +90,7 @@ function SpaceDetailContent({
           <ImportTranscriptModal defaultSpaceId={Number(spaceId)} />
         </div>
 
-        <SpaceDropTargets currentSpaceId={Number(spaceId)} />
+        <SpaceDropTargets />
 
         {meetings.length === 0 ? (
           <div className="bg-white/[0.03] border border-white/[0.06] rounded-2xl p-10 text-center">
@@ -103,17 +103,33 @@ function SpaceDetailContent({
               const summary = parseEnhancementSummary(m.enhancement)
               const attendees = parseAttendees(m.attendees)
               return (
-                <DraggableMeetingRow
-                  key={m.id}
-                  meetingId={m.id}
-                  href={`/meetings/${m.id}`}
-                  title={m.title}
-                  date={new Date(m.created_at).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })}
-                  duration={formatDuration(m.duration_seconds)}
-                  summary={summary}
-                  attendeeCount={attendees.length}
-                  hasBorder={i < meetings.length - 1}
-                />
+                <div key={m.id} className={`relative group flex items-center ${i < meetings.length - 1 ? 'border-b border-white/[0.05]' : ''}`}>
+                  <DraggableMeetingRow
+                    meetingId={m.id}
+                    href={`/meetings/${m.id}`}
+                    title={m.title}
+                    className="flex-1 min-w-0 px-6 py-4 hover:bg-white/[0.03] transition-colors"
+                  >
+                    <div className="flex items-start justify-between gap-4 pr-8">
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-white truncate">{m.title}</p>
+                        {summary && <p className="text-xs text-neutral-500 mt-1 line-clamp-2">{summary}</p>}
+                        {attendees.length > 0 && (
+                          <p className="text-xs text-neutral-600 mt-1">
+                            {attendees.slice(0, 3).map(a => a.name).join(', ')}
+                            {attendees.length > 3 ? ` +${attendees.length - 3}` : ''}
+                          </p>
+                        )}
+                      </div>
+                      <div className="text-right shrink-0">
+                        <p className="text-xs text-neutral-500">
+                          {new Date(m.created_at).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })}
+                        </p>
+                        <p className="text-xs text-neutral-600 mt-0.5">{formatDuration(m.duration_seconds)}</p>
+                      </div>
+                    </div>
+                  </DraggableMeetingRow>
+                </div>
               )
             })}
           </div>

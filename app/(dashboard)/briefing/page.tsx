@@ -6,6 +6,7 @@ import Anthropic from '@anthropic-ai/sdk'
 import Link from 'next/link'
 import UpcomingMeetings from '@/components/UpcomingMeetings'
 import BriefingActions from '@/components/BriefingActions'
+import type { ActionItem } from '@/components/ActionsClient'
 import CalendarSyncTrigger from '@/components/CalendarSyncTrigger'
 import { parseEnhancementSummary } from '@/lib/parsers'
 
@@ -187,8 +188,8 @@ export default async function BriefingPage() {
 
   const overdueActions = (allActions ?? []).filter(a => getDueStatus(a.due_date, a.done_at) === 'overdue')
   const todayActions = (allActions ?? []).filter(a => getDueStatus(a.due_date, a.done_at) === 'today')
-  const urgentActions = [...overdueActions, ...todayActions]
-  const pendingActions = allActions ?? []
+  const urgentActions = [...overdueActions, ...todayActions] as ActionItem[]
+  const pendingActions = (allActions ?? []) as ActionItem[]
 
   const dateLabel = today.toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' })
 

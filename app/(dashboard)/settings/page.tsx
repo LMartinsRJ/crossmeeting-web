@@ -1,24 +1,27 @@
 import { createClient } from '@/lib/supabase/server'
 import Link from 'next/link'
 import FirefliesCard from '@/components/FirefliesCard'
+import GranolaCard from '@/components/GranolaCard'
+import TeamsCard from '@/components/TeamsCard'
+import GoogleMeetCard from '@/components/GoogleMeetCard'
+import ZoomCard from '@/components/ZoomCard'
+import OtterCard from '@/components/OtterCard'
 import ApiKeyManager from '@/components/ApiKeyManager'
 import WebhookManager from '@/components/WebhookManager'
 
 const cloudUrl = 'https://gobnerbexyzktxhxuiju.supabase.co/functions/v1'
 
-const SOURCES = [
-  { id: 'granola',     name: 'Granola',           description: 'Gere uma API key no Granola e cole aqui para importar suas transcrições.',           icon: '🌾', placeholder: 'grnl_xxxxxxxxxxxxxxxxxxxx' },
-  { id: 'fireflies',   name: 'Fireflies.ai',       description: 'Cole sua API key do Fireflies para sincronizar transcrições e resumos.',              icon: '🔥', placeholder: 'xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx' },
-  { id: 'otter',       name: 'Otter.ai',           description: 'Cole sua API key do Otter para importar transcrições.',                              icon: '🦦', placeholder: 'ot_xxxxxxxxxxxxxxxxxxxx' },
-  { id: 'zoom',        name: 'Zoom',               description: 'Conecte via OAuth ou Server-to-Server para importar gravações e transcrições.',       icon: '💙', placeholder: 'Account ID ou OAuth token' },
-  { id: 'teams',       name: 'Microsoft Teams',    description: 'Importe transcrições geradas pelo Teams via Microsoft Graph API.',                    icon: '🟦', placeholder: 'Client ID / Tenant ID' },
-  { id: 'google_meet', name: 'Google Meet',        description: 'Conecte via Google Workspace para importar transcrições do Meet.',                   icon: '🟩', placeholder: 'Service Account ou OAuth token' },
-]
-
 export default async function SettingsPage({ searchParams }: { searchParams: Promise<{ tab?: string }> }) {
   const { tab = 'profile' } = await searchParams
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
+
+  // Verificar tokens OAuth vinculados
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('microsoft_calendar_token, google_calendar_token')
+    .maybeSingle()
+
   const { data: keys } = await supabase
     .from('api_keys')
     .select('id, name, key_prefix, created_at, last_used_at')
@@ -29,6 +32,36 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
     .from('integration_credentials')
     .select('status, last_synced_at, synced_count')
     .eq('source', 'fireflies')
+    .maybeSingle()
+
+  const { data: teamsCred } = await supabase
+    .from('integration_credentials')
+    .select('status, last_synced_at, synced_count')
+    .eq('source', 'teams')
+    .maybeSingle()
+
+  const { data: meetCred } = await supabase
+    .from('integration_credentials')
+    .select('status, last_synced_at, synced_count')
+    .eq('source', 'google_meet')
+    .maybeSingle()
+
+  const { data: zoomCred } = await supabase
+    .from('integration_credentials')
+    .select('status, last_synced_at, synced_count')
+    .eq('source', 'zoom')
+    .maybeSingle()
+
+  const { data: otterCred } = await supabase
+    .from('integration_credentials')
+    .select('status, last_synced_at, synced_count')
+    .eq('source', 'otter')
+    .maybeSingle()
+
+  const { data: granolaCred } = await supabase
+    .from('integration_credentials')
+    .select('status, last_synced_at, synced_count')
+    .eq('source', 'granola')
     .maybeSingle()
 
   const { data: webhooks } = await supabase
@@ -159,31 +192,19 @@ claude mcp add crossmeeting \\
                 lastSynced={fireflyesCred?.last_synced_at ?? null}
                 syncedCount={fireflyesCred?.synced_count ?? 0}
               />
-              {SOURCES.filter(s => s.id !== 'fireflies').map((source) => (
-                <div key={source.id} className="bg-white/[0.02] border border-white/[0.06] rounded-2xl p-5">
-                  <div className="flex items-start gap-3 mb-4">
-                    <span className="text-xl shrink-0 mt-0.5">{source.icon}</span>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center justify-between gap-2">
-                        <p className="text-sm font-medium text-white">{source.name}</p>
-                        <span className="text-[10px] bg-white/[0.04] text-neutral-500 border border-white/[0.08] px-2 py-0.5 rounded-full shrink-0">Em breve</span>
-                      </div>
-                      <p className="text-xs text-neutral-500 mt-0.5 leading-relaxed">{source.description}</p>
-                    </div>
-                  </div>
-                  <div className="flex gap-2">
-                    <input
-                      type="password"
-                      placeholder={source.placeholder}
-                      disabled
-                      className="flex-1 bg-white/[0.03] border border-white/[0.06] rounded-xl px-3 py-2 text-xs text-neutral-600 placeholder-neutral-700 outline-none cursor-not-allowed"
-                    />
-                    <button disabled className="px-4 py-2 rounded-xl bg-white/[0.04] text-neutral-600 text-xs font-medium cursor-not-allowed border border-white/[0.06]">
-                      Salvar
-                    </button>
-                  </div>
-                </div>
-              ))}
+              <TeamsCard
+                microsoftLinked={!!profile?.microsoft_calendar_token}
+                lastSynced={teamsCred?.last_synced_at ?? null}
+                syncedCount={teamsCred?.synced_count ?? 0}
+              />
+              <GoogleMeetCard
+                googleLinked={!!profile?.google_calendar_token}
+                lastSynced={meetCred?.last_synced_at ?? null}
+                syncedCount={meetCred?.synced_count ?? 0}
+              />
+              <ZoomCard cred={zoomCred ?? null} />
+              <OtterCard cred={otterCred ?? null} />
+              <GranolaCard cred={granolaCred ?? null} />
             </div>
           </section>
         </div>
