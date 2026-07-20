@@ -1,6 +1,12 @@
 import { loginWithGoogle, loginWithMicrosoft } from './actions'
 
-export default function LoginPage() {
+export default async function LoginPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ next?: string }>
+}) {
+  const { next } = await searchParams
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-[#0E1117]">
       <div className="w-full max-w-sm px-6">
@@ -15,17 +21,17 @@ export default function LoginPage() {
             <rect x="20" y="14" width="2"  height="10" rx="1" fill="#6C8EFF" opacity="0.6"/>
           </svg>
           <span className="text-[18px] font-bold tracking-wide">
-            <span className="text-[#6C8EFF]">CROSS</span>MEETING
+            CROSS<span className="text-[#6C8EFF]">MEETING</span>
           </span>
         </div>
 
         <h1 className="text-2xl font-semibold text-center mb-2">Entrar</h1>
         <p className="text-sm text-neutral-500 text-center mb-8">
-          Acesse seu dashboard Chief of Staff
+          A inteligência da sua organização começa nas reuniões.
         </p>
 
         <div className="space-y-3">
-          <form action={loginWithGoogle}>
+          <form action={loginWithGoogle.bind(null, next)}>
             <button
               type="submit"
               className="w-full flex items-center justify-center gap-3 px-4 py-3 rounded-xl border border-white/10 bg-white/[0.04] hover:bg-white/[0.08] transition-colors text-sm font-medium text-white"
@@ -40,7 +46,7 @@ export default function LoginPage() {
             </button>
           </form>
 
-          <form action={loginWithMicrosoft}>
+          <form action={loginWithMicrosoft.bind(null, next)}>
             <button
               type="submit"
               className="w-full flex items-center justify-center gap-3 px-4 py-3 rounded-xl border border-white/10 bg-white/[0.04] hover:bg-white/[0.08] transition-colors text-sm font-medium text-white"

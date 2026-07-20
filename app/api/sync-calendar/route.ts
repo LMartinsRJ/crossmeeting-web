@@ -44,6 +44,25 @@ async function fetchMicrosoftEvents(token: string) {
   return { events: data.value ?? [], expired: false }
 }
 
+async function refreshGoogleToken(refreshToken: string): Promise<string | null> {
+  try {
+    const res = await fetch('https://oauth2.googleapis.com/token', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({
+        client_id: process.env.GOOGLE_CLIENT_ID!,
+        client_secret: process.env.GOOGLE_CLIENT_SECRET!,
+        refresh_token: refreshToken,
+        grant_type: 'refresh_token',
+      }),
+    })
+    const data = await res.json()
+    return data.access_token ?? null
+  } catch {
+    return null
+  }
+}
+
 function extractGoogleMeetingLink(item: any): string | null {
   if (item.hangoutLink) return item.hangoutLink
   const loc = item.location ?? ''
@@ -65,16 +84,15 @@ export async function POST() {
   if (!user) return unauthorized()
   if (!profile) return notFound('Perfil não encontrado.')
 
-  // profiles_select_own policy: retorna só o perfil do usuário autenticado
   const { data: profileData } = await supabase
     .from('profiles')
-    .select('id, calendar_provider, google_calendar_token, microsoft_calendar_token')
+    .select('id, calendar_provider, google_calendar_token, google_calendar_refresh, microsoft_calendar_token')
     .maybeSingle()
 
   if (!profileData) return notFound('Perfil não encontrado.')
 
   const provider = profileData.calendar_provider
-  const token = provider === 'google'
+  let token = provider === 'google'
     ? profileData.google_calendar_token
     : profileData.microsoft_calendar_token
 
@@ -82,9 +100,22 @@ export async function POST() {
     return NextResponse.json({ status: 'no_token', message: 'Faça login novamente para conectar o calendário.' })
   }
 
-  const result = provider === 'google'
+  let result = provider === 'google'
     ? await fetchGoogleEvents(token)
     : await fetchMicrosoftEvents(token)
+
+  // Access token expirado — tenta renovar usando o refresh_token
+  if (result.expired && provider === 'google' && profileData.google_calendar_refresh) {
+    const refreshed = await refreshGoogleToken(profileData.google_calendar_refresh)
+    if (refreshed) {
+      token = refreshed
+      await supabase.from('profiles').update({
+        google_calendar_token: refreshed,
+        calendar_token_updated_at: new Date().toISOString(),
+      }).eq('id', profileData.id)
+      result = await fetchGoogleEvents(refreshed)
+    }
+  }
 
   if (result.expired) {
     return NextResponse.json({ status: 'token_expired', message: 'Token de calendário expirado. Faça login novamente.' })

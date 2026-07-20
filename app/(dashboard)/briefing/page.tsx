@@ -478,7 +478,7 @@ export default async function BriefingPage() {
               )
 
               if (item.type === 'action_done') return (
-                <div key={`ad-${item.date}-${item.text.slice(0,20)}`}
+                <div key={`ad-${i}`}
                   className={`flex items-start gap-3 px-5 py-3.5 ${borderClass}`}>
                   <div className="w-2 h-2 rounded-full bg-emerald-500 shrink-0 mt-1.5" />
                   <div className="flex-1 min-w-0">
@@ -494,7 +494,7 @@ export default async function BriefingPage() {
               )
 
               return (
-                <div key={`ac-${item.date}-${item.text.slice(0,20)}`}
+                <div key={`ac-${i}`}
                   className={`flex items-start gap-3 px-5 py-3.5 ${borderClass}`}>
                   <div className="w-2 h-2 rounded-full bg-amber-400 shrink-0 mt-1.5" />
                   <div className="flex-1 min-w-0">
