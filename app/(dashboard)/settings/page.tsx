@@ -8,6 +8,7 @@ import ZoomCard from '@/components/ZoomCard'
 import OtterCard from '@/components/OtterCard'
 import ApiKeyManager from '@/components/ApiKeyManager'
 import WebhookManager from '@/components/WebhookManager'
+import ApiConnectionCard from '@/components/ApiConnectionCard'
 
 const cloudUrl = 'https://gobnerbexyzktxhxuiju.supabase.co/functions/v1'
 
@@ -146,7 +147,11 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
 
             <ApiKeyManager initialKeys={(keys ?? []) as any} />
 
-            <div className="mt-6 space-y-3">
+            <div className="mt-6 mb-6">
+              <ApiConnectionCard apiKey={keys?.[0]?.key_prefix ?? null} />
+            </div>
+
+            <div className="space-y-3">
               <div className="bg-white/[0.02] border border-white/[0.06] rounded-2xl p-5">
                 <p className="text-xs text-neutral-400 mb-2.5 font-medium">REST API — reuniões</p>
                 <pre className="text-[11px] text-neutral-500 font-mono leading-relaxed overflow-x-auto whitespace-pre-wrap">{`# Listar reuniões (até 100 com ?limit=N)
