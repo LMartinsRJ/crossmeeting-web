@@ -30,7 +30,8 @@ export async function GET(request: Request) {
           }
         } catch { /* não bloqueia o login se falhar */ }
       }
-      return NextResponse.redirect(`${origin}${next}`)
+      const safePath = next.startsWith('/') && !next.startsWith('//') ? next : '/'
+      return NextResponse.redirect(`${origin}${safePath}`)
     }
   }
 
