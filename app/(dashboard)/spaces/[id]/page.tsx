@@ -8,6 +8,7 @@ import ImportTranscriptModal from '@/components/ImportTranscriptModal'
 import DraggableMeetingRow from '@/components/DraggableMeetingRow'
 import SpaceDropTargets from '@/components/SpaceDropTargets'
 import MeetingSelectionProvider from '@/components/MeetingSelectionContext'
+import SpaceChatPanel from '@/components/SpaceChatPanel'
 
 function formatDuration(secs: number) {
   if (secs < 60) return `${secs}s`
@@ -57,7 +58,7 @@ function SpaceDetailContent({
   meetings,
   spaceId,
 }: {
-  space: any
+  space: { id: number; name: string; emoji?: string; user_id: string; is_default?: boolean }
   isOwner: boolean
   meetings: any[]
   spaceId: string
@@ -135,6 +136,8 @@ function SpaceDetailContent({
           </div>
         )}
       </MeetingSelectionProvider>
+
+      <SpaceChatPanel spaceId={spaceId} />
     </>
   )
 }

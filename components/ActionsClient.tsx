@@ -165,14 +165,6 @@ export function EditModal({ action, onClose, onSaved }: { action: ActionItem, on
             <label className="block text-xs text-neutral-500 mb-1.5">Responsável <span className="text-neutral-700">(extraído da reunião — edite se necessário)</span></label>
             <input value={form.owner} onChange={e => setForm(f => ({ ...f, owner: e.target.value }))} placeholder="Nome do responsável..." className={inp} />
           </div>
-          <div>
-            <label className="block text-xs text-neutral-500 mb-1.5">Área Responsável</label>
-            <input value={form.area} onChange={e => setForm(f => ({ ...f, area: e.target.value }))} placeholder="Ex: TI, Financeiro..." className={inp} />
-          </div>
-          <div>
-            <label className="block text-xs text-neutral-500 mb-1.5">Áreas Relacionadas <span className="text-neutral-700">(opcional — separe por vírgula)</span></label>
-            <input value={form.areas_relacionadas} onChange={e => setForm(f => ({ ...f, areas_relacionadas: e.target.value }))} placeholder="Ex: TI, Financeiro..." className={inp} />
-          </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="block text-xs text-neutral-500 mb-1.5">Data de Entrega</label>
@@ -186,10 +178,6 @@ export function EditModal({ action, onClose, onSaved }: { action: ActionItem, on
                 <option value="alta">Alta</option>
               </select>
             </div>
-          </div>
-          <div>
-            <label className="block text-xs text-neutral-500 mb-1.5">Delegar para</label>
-            <input value={form.delegado_para} onChange={e => setForm(f => ({ ...f, delegado_para: e.target.value }))} placeholder="Nome ou email do responsável..." className={inp} />
           </div>
           <div>
             <label className="block text-xs text-neutral-500 mb-1.5">Notas</label>

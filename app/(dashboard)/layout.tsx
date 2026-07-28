@@ -5,6 +5,7 @@ import { DragProvider } from '@/components/DragStore'
 import { getOrgContext } from '@/lib/enterprise'
 import { isSuperAdmin } from '@/lib/superAdmin'
 import CalendarSyncTrigger from '@/components/CalendarSyncTrigger'
+import ScrollContainer from '@/components/ScrollContainer'
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
   const supabase = await createClient()
@@ -20,9 +21,9 @@ export default async function DashboardLayout({ children }: { children: React.Re
     <DragProvider>
       <div className="flex h-screen overflow-hidden bg-[#0E1117]">
         <Sidebar user={user} orgContext={orgContext} superAdmin={superAdmin} />
-        <main className="flex-1 overflow-y-auto">
+        <main className="flex-1 overflow-hidden flex flex-col">
           <CalendarSyncTrigger />
-          {children}
+          <ScrollContainer>{children}</ScrollContainer>
         </main>
       </div>
     </DragProvider>

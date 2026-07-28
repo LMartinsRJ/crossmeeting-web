@@ -10,8 +10,13 @@ import type { OrgContext } from '@/lib/enterprise'
 
 const NAV = [
   { href: '/briefing',   label: 'Briefing do dia',  icon: '◈' },
+  { href: '/agenda',     label: 'Agenda',            icon: '◻' },
   { href: '/actions',    label: 'Ações',             icon: '✅' },
-  { href: '/meetings',   label: 'Reuniões',          icon: '◷' },
+  { href: '/meetings',   label: 'Transcrições',      icon: '◷' },
+  { href: '/people',     label: 'Pessoas',           icon: '◷' },
+  { href: '/companies',  label: 'Empresas',          icon: '◷' },
+  { href: '/recipes',    label: 'Recipes',           icon: '◷' },
+  { href: '/shared',     label: 'Compartilhadas',    icon: '◷' },
   { href: '/spaces',     label: 'Spaces',            icon: '📁' },
   { href: '/analytics',  label: 'Analytics',         icon: '◱' },
 ]
