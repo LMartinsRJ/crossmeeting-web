@@ -77,7 +77,7 @@ function SpaceDetailContent({
         </div>
         {isOwner && (
           <div className="flex items-center gap-2 shrink-0">
-            <ShareSpaceModal spaceId={Number(spaceId)} />
+            {/* ShareSpaceModal — temporariamente oculto */}
             {!space.is_default && <DeleteSpaceButton spaceId={Number(spaceId)} spaceName={space.name} />}
           </div>
         )}
