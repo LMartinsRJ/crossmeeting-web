@@ -23,12 +23,15 @@ export async function middleware(request: NextRequest) {
 
   const { data: { user } } = await supabase.auth.getUser()
 
-  const isAuthRoute = request.nextUrl.pathname.startsWith('/login') ||
+  const isPublicRoute = request.nextUrl.pathname.startsWith('/login') ||
     request.nextUrl.pathname.startsWith('/auth') ||
-    request.nextUrl.pathname.startsWith('/api/') ||
     request.nextUrl.pathname.startsWith('/accept-invite')
 
-  if (!user && !isAuthRoute) {
+  if (!user && !isPublicRoute) {
+    // API routes return 401 JSON — never redirect (would break fetch callers)
+    if (request.nextUrl.pathname.startsWith('/api/')) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
     return NextResponse.redirect(new URL('/login', request.url))
   }
 
