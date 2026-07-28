@@ -23,12 +23,14 @@ export async function GET() {
     memberCounts[m.organization_id] = (memberCounts[m.organization_id] ?? 0) + 1
   }
 
+  type OrgSetting = { org_id: string; ms365_enabled: boolean; teams_meetings_enabled: boolean; whatsapp_enabled: boolean; ai_model: string; feature_overrides: Record<string, unknown> }
+
   const { data: settings } = await db
     .from('org_settings')
     .select('org_id, ms365_enabled, teams_meetings_enabled, whatsapp_enabled, ai_model, feature_overrides')
 
-  const settingsMap: Record<string, typeof settings[0]> = {}
-  for (const s of settings ?? []) settingsMap[s.org_id] = s
+  const settingsMap: Record<string, OrgSetting> = {}
+  for (const s of (settings ?? []) as OrgSetting[]) settingsMap[s.org_id] = s
 
   const enriched = (orgs ?? []).map(org => ({
     id: org.id,
