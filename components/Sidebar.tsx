@@ -16,7 +16,7 @@ const NAV = [
   { href: '/people',     label: 'Pessoas',           icon: '◷' },
   { href: '/companies',  label: 'Empresas',          icon: '◷' },
   { href: '/recipes',    label: 'Recipes',           icon: '◷' },
-  { href: '/shared',     label: 'Compartilhadas',    icon: '◷' },
+  // { href: '/shared',  label: 'Compartilhadas',    icon: '◷' },  // temporariamente oculto
   { href: '/spaces',     label: 'Spaces',            icon: '📁' },
   { href: '/analytics',  label: 'Analytics',         icon: '◱' },
 ]
