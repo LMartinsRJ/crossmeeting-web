@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getAuthContext, unauthorized } from '@/lib/auth'
+import { isPrivateUrl } from '@/lib/is-private-url'
 
 export async function DELETE(
   _req: NextRequest,
@@ -36,6 +37,10 @@ export async function POST(
     .single()
 
   if (!wh) return NextResponse.json({ error: 'Webhook não encontrado.' }, { status: 404 })
+
+  if (isPrivateUrl(wh.url)) {
+    return NextResponse.json({ error: 'URL não permitida.' }, { status: 400 })
+  }
 
   const payload = {
     event: 'test',

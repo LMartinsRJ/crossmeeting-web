@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getAuthContext, unauthorized } from '@/lib/auth'
+import { isPrivateUrl } from '@/lib/is-private-url'
 
 export async function GET() {
   const { supabase, profile } = await getAuthContext()
@@ -27,6 +28,10 @@ export async function POST(req: NextRequest) {
 
   try { new URL(url) } catch {
     return NextResponse.json({ error: 'URL inválida.' }, { status: 400 })
+  }
+
+  if (isPrivateUrl(url)) {
+    return NextResponse.json({ error: 'URL não permitida.' }, { status: 400 })
   }
 
   const validEvents = ['action_done', 'briefing_ready']

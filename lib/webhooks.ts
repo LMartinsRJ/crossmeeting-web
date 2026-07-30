@@ -1,5 +1,6 @@
 import { createHash, createHmac } from 'crypto'
 import { SupabaseClient } from '@supabase/supabase-js'
+import { isPrivateUrl } from '@/lib/is-private-url'
 
 export type WebhookEvent = 'action_done' | 'briefing_ready'
 
@@ -31,6 +32,8 @@ export async function fireWebhooks(
         const sig = createHmac('sha256', ep.secret).update(body).digest('hex')
         headers['X-Crossmeeting-Signature'] = `sha256=${sig}`
       }
+
+      if (isPrivateUrl(ep.url)) return
 
       try {
         const res = await fetch(ep.url, { method: 'POST', headers, body, signal: AbortSignal.timeout(8000) })
