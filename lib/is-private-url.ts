@@ -3,21 +3,7 @@
  * prevenindo SSRF em endpoints que fazem fetch de URLs controladas pelo usuário.
  */
 
-const PRIVATE_HOSTNAME_RE = /^(
-  localhost |
-  0\.0\.0\.0 |
-  127\. |           # loopback
-  10\. |            # RFC 1918
-  192\.168\. |      # RFC 1918
-  172\.(1[6-9]|2\d|3[01])\. | # RFC 1918 172.16–31
-  169\.254\. |      # link-local / AWS metadata
-  100\.64\. |       # CGNAT
-  ::1 |             # IPv6 loopback
-  \[::1\] |
-  fc | fd            # IPv6 ULA
-)/.source.replace(/\s+|\n/g, '')
-
-const PRIVATE_RE = new RegExp(PRIVATE_HOSTNAME_RE, 'i')
+const PRIVATE_RE = /^(localhost|0\.0\.0\.0|127\.|10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.|169\.254\.|100\.64\.|::1|\[::1\]|fc|fd)/i
 
 const BLOCKED_HOSTS = new Set([
   '169.254.169.254',  // AWS/GCP/Azure instance metadata
