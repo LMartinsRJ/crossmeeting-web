@@ -67,7 +67,7 @@ const strings = {
       close:  'Close',
     },
   },
-} as const
+}
 
 export type Strings = typeof strings['pt']
-export const t = (lang: Lang): Strings => strings[lang]
+export const t = (lang: Lang): Strings => strings[lang] as Strings
