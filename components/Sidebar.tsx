@@ -7,24 +7,25 @@ import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
 import type { User } from '@supabase/supabase-js'
 import type { OrgContext } from '@/lib/enterprise'
-
-const NAV = [
-  { href: '/briefing',   label: 'Briefing do dia',  icon: '◈' },
-  { href: '/agenda',     label: 'Agenda',            icon: '◻' },
-  { href: '/actions',    label: 'Ações',             icon: '✅' },
-  { href: '/meetings',   label: 'Transcrições',      icon: '◷' },
-  { href: '/people',     label: 'Contatos',          icon: '◷' },
-  { href: '/companies',  label: 'Empresas',          icon: '◷' },
-  { href: '/recipes',    label: 'Recipes',           icon: '◷' },
-  // { href: '/shared',  label: 'Compartilhadas',    icon: '◷' },  // temporariamente oculto
-  { href: '/spaces',     label: 'Spaces',            icon: '📁' },
-  { href: '/analytics',  label: 'Analytics',         icon: '◱' },
-]
+import { useLanguage } from '@/components/LanguageContext'
+import { t } from '@/lib/strings'
 
 const SHARES_SEEN_KEY = 'cm_shares_seen_at'
 
-const NAV2 = [
-  { href: '/trash',      label: 'Lixeira',          icon: '🗑' },
+const NAV_KEYS = [
+  { href: '/briefing',   key: 'briefing'  as const, icon: '◈' },
+  { href: '/agenda',     key: 'agenda'    as const, icon: '◻' },
+  { href: '/actions',    key: 'actions'   as const, icon: '✅' },
+  { href: '/meetings',   key: 'meetings'  as const, icon: '◷' },
+  { href: '/people',     key: 'people'    as const, icon: '◷' },
+  { href: '/companies',  key: 'companies' as const, icon: '◷' },
+  { href: '/recipes',    key: 'recipes'   as const, icon: '◷' },
+  { href: '/spaces',     key: 'spaces'    as const, icon: '📁' },
+  { href: '/analytics',  key: 'analytics' as const, icon: '◱' },
+]
+
+const NAV2_KEYS = [
+  { href: '/trash', key: 'trash' as const },
 ]
 
 const NAV_ENTERPRISE = [
@@ -40,6 +41,8 @@ export default function Sidebar({ user, orgContext, superAdmin }: { user: User; 
   const router = useRouter()
   const supabase = createClient()
   const [unseenShares, setUnseenShares] = useState(0)
+  const { lang } = useLanguage()
+  const s = t(lang)
 
   const initials = (user.user_metadata?.full_name as string ?? user.email ?? '?')
     .split(' ').map((n: string) => n[0]).join('').slice(0, 2).toUpperCase()
@@ -83,7 +86,7 @@ export default function Sidebar({ user, orgContext, superAdmin }: { user: User; 
 
       {/* Nav principal */}
       <nav className="flex-1 overflow-y-auto px-3 py-2 space-y-0.5">
-        {NAV.map(item => (
+        {NAV_KEYS.map(item => (
           <Link
             key={item.href}
             href={item.href}
@@ -93,7 +96,7 @@ export default function Sidebar({ user, orgContext, superAdmin }: { user: User; 
                 : 'text-neutral-500 hover:text-neutral-200 hover:bg-white/[0.04]'
             }`}
           >
-            <span className="flex-1">{item.label}</span>
+            <span className="flex-1">{s.nav[item.key]}</span>
             {item.href === '/spaces' && unseenShares > 0 && (
               <span className="text-[10px] bg-[#6C8EFF] text-white font-semibold px-1.5 py-0.5 rounded-full">{unseenShares}</span>
             )}
@@ -157,7 +160,7 @@ export default function Sidebar({ user, orgContext, superAdmin }: { user: User; 
           <span className="text-[10px] font-semibold text-neutral-700 uppercase tracking-widest">Sistema</span>
         </div>
 
-        {NAV2.map(item => (
+        {NAV2_KEYS.map(item => (
           <Link
             key={item.href}
             href={item.href}
@@ -167,7 +170,7 @@ export default function Sidebar({ user, orgContext, superAdmin }: { user: User; 
                 : 'text-neutral-500 hover:text-neutral-200 hover:bg-white/[0.04]'
             }`}
           >
-            {item.label}
+            {s.nav[item.key]}
           </Link>
         ))}
       </nav>
@@ -195,9 +198,9 @@ export default function Sidebar({ user, orgContext, superAdmin }: { user: User; 
           <button
             onClick={e => { e.preventDefault(); handleLogout() }}
             className="text-neutral-700 hover:text-neutral-400 transition-colors text-[10px]"
-            title="Sair"
+            title={s.nav.signOut}
           >
-            Sair
+            {s.nav.signOut}
           </button>
         </Link>
       </div>

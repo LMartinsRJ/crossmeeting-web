@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import Link from 'next/link'
+import LanguagePicker from '@/components/LanguagePicker'
 import FirefliesCard from '@/components/FirefliesCard'
 import GranolaCard from '@/components/GranolaCard'
 import TeamsCard from '@/components/TeamsCard'
@@ -117,6 +118,10 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
             <div className="text-xs text-neutral-600">
               Conta gerenciada via Google OAuth. Para alterar nome ou foto, atualize seu perfil Google.
             </div>
+          </div>
+
+          <div className="bg-white/[0.03] border border-white/[0.06] rounded-2xl p-6">
+            <LanguagePicker />
           </div>
 
           <div className="bg-white/[0.03] border border-white/[0.06] rounded-2xl p-6">
