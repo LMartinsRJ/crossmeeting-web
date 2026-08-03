@@ -13,7 +13,7 @@ const NAV = [
   { href: '/agenda',     label: 'Agenda',            icon: '◻' },
   { href: '/actions',    label: 'Ações',             icon: '✅' },
   { href: '/meetings',   label: 'Transcrições',      icon: '◷' },
-  { href: '/people',     label: 'Pessoas',           icon: '◷' },
+  { href: '/people',     label: 'Contatos',          icon: '◷' },
   { href: '/companies',  label: 'Empresas',          icon: '◷' },
   { href: '/recipes',    label: 'Recipes',           icon: '◷' },
   // { href: '/shared',  label: 'Compartilhadas',    icon: '◷' },  // temporariamente oculto
