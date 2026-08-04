@@ -1,9 +1,9 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { Suspense, useEffect, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
 
-export default function DesktopCallbackPage() {
+function DesktopCallback() {
   const params = useSearchParams()
   const [status, setStatus] = useState<'redirecting' | 'done' | 'error'>('redirecting')
 
@@ -13,11 +13,7 @@ export default function DesktopCallbackPage() {
       setStatus('error')
       return
     }
-
-    // Envia o código para o app desktop via deep link
     window.location.href = `crossmeeting://login-callback?code=${encodeURIComponent(code)}`
-
-    // Após 1s considera feito (o browser pode ter aberto o app)
     setTimeout(() => setStatus('done'), 1000)
   }, [params])
 
@@ -49,7 +45,7 @@ export default function DesktopCallbackPage() {
               Erro na autenticação
             </h2>
             <p style={{ fontSize: 14, color: '#6b7280', margin: 0 }}>
-              Nenhum código de autenticação encontrado. Tente novamente no app.
+              Nenhum código encontrado. Tente novamente no app.
             </p>
           </>
         ) : (
@@ -78,5 +74,17 @@ export default function DesktopCallbackPage() {
         )}
       </div>
     </div>
+  )
+}
+
+export default function DesktopCallbackPage() {
+  return (
+    <Suspense fallback={
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh', background: '#13161D', color: 'white', fontFamily: 'sans-serif' }}>
+        <p style={{ color: '#6b7280' }}>Processando autenticação...</p>
+      </div>
+    }>
+      <DesktopCallback />
+    </Suspense>
   )
 }
