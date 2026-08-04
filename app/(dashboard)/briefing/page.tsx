@@ -25,46 +25,44 @@ function getDueStatus(dueDateStr: string | null, doneAt: string | null) {
   return 'pending'
 }
 
-async function generateAIBriefing(
-  profileId: string,
-  context: {
-    firstName: string
-    todayMeetings: any[]
-    urgentActions: any[]
-    overdueActions: any[]
-    upcomingEvents: any[]
-    todayDateLabel: string
-  }
-): Promise<string> {
-  const cached = unstable_cache(
-    async () => {
-      const apiKey = process.env.ANTHROPIC_API_KEY
-      if (!apiKey) return null
+// Definido no nível do módulo para que o unstable_cache funcione corretamente em produção
+const fetchAIBriefing = unstable_cache(
+  async (
+    profileId: string,
+    firstName: string,
+    todayMeetings: any[],
+    urgentActions: any[],
+    overdueActions: any[],
+    upcomingEvents: any[],
+    todayDateLabel: string,
+  ): Promise<string | null> => {
+    const apiKey = process.env.ANTHROPIC_API_KEY
+    if (!apiKey) return null
 
-      const client = new Anthropic({ apiKey })
+    const client = new Anthropic({ apiKey })
 
-      const eventsText = context.upcomingEvents.slice(0, 3)
-        .map(e => `- ${e.title} às ${new Date(e.start_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}`)
-        .join('\n') || 'Nenhum evento agendado para hoje.'
+    const eventsText = upcomingEvents.slice(0, 3)
+      .map(e => `- ${e.title} às ${new Date(e.start_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', timeZone: 'America/Sao_Paulo' })}`)
+      .join('\n') || 'Nenhum evento agendado para hoje.'
 
-      const overdueText = context.overdueActions.slice(0, 5)
-        .map(a => `- "${a.text}" (responsável: ${a.owner || 'não definido'}, venceu ${a.due_date})`)
-        .join('\n') || 'Nenhuma ação em atraso.'
+    const overdueText = overdueActions.slice(0, 5)
+      .map(a => `- "${a.text}" (responsável: ${a.owner || 'não definido'}, venceu ${a.due_date})`)
+      .join('\n') || 'Nenhuma ação em atraso.'
 
-      const urgentText = context.urgentActions.slice(0, 5)
-        .map(a => `- "${a.text}" (responsável: ${a.owner || 'não definido'})`)
-        .join('\n') || 'Nenhuma ação vence hoje.'
+    const urgentText = urgentActions.slice(0, 5)
+      .map(a => `- "${a.text}" (responsável: ${a.owner || 'não definido'})`)
+      .join('\n') || 'Nenhuma ação vence hoje.'
 
-      const meetingsText = context.todayMeetings.length > 0
-        ? context.todayMeetings.map(m => `- ${m.title}`).join('\n')
-        : 'Nenhuma reunião gravada hoje ainda.'
+    const meetingsText = todayMeetings.length > 0
+      ? todayMeetings.map(m => `- ${m.title}`).join('\n')
+      : 'Nenhuma reunião gravada hoje ainda.'
 
-      const msg = await client.messages.create({
-        model: process.env.CLAUDE_SONNET_MODEL ?? 'claude-sonnet-4-6',
-        max_tokens: 600,
-        messages: [{
-          role: 'user',
-          content: `Você é um assistente executivo do Crossmeeting. Escreva um briefing matinal pessoal e direto para ${context.firstName}. Hoje é ${context.todayDateLabel}.
+    const msg = await client.messages.create({
+      model: process.env.CLAUDE_SONNET_MODEL ?? 'claude-sonnet-4-6',
+      max_tokens: 600,
+      messages: [{
+        role: 'user',
+        content: `Você é um assistente executivo do Crossmeeting. Escreva um briefing matinal pessoal e direto para ${firstName}. Hoje é ${todayDateLabel}.
 
 Agenda de hoje:
 ${eventsText}
@@ -84,31 +82,32 @@ Escreva 3 parágrafos curtos (máx. 3 frases cada) em português brasileiro:
 3. Foco recomendado para hoje (3 prioridades concretas)
 
 Use tom profissional mas direto, sem floreios. Não use bullet points. Não use saudação. Comece direto no contexto.`,
-        }],
-      })
+      }],
+    })
 
-      const content = msg.content[0]
-      return content.type === 'text' ? content.text : null
-    },
-    [`briefing-${profileId}-${new Date().toISOString().slice(0, 13)}`],
-    { revalidate: 3600 }
-  )
-
-  return await cached() ?? ''
-}
+    const content = msg.content[0]
+    return content.type === 'text' ? content.text : null
+  },
+  ['ai-briefing'],
+  { revalidate: 3600 }
+)
 
 export default async function BriefingPage() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
 
   const firstName = (user?.user_metadata?.full_name as string ?? 'você').split(' ')[0]
-  const hour = new Date().getHours()
+
+  // Sempre usar horário de Brasília independente do timezone do servidor
+  const TZ = 'America/Sao_Paulo'
+  const nowBRT = new Date(new Date().toLocaleString('en-US', { timeZone: TZ }))
+  const hour = nowBRT.getHours()
   const greeting = hour < 12 ? 'Bom dia' : hour < 18 ? 'Boa tarde' : 'Boa noite'
 
-  const today = new Date()
-  today.setHours(0, 0, 0, 0)
+  const todayStr = new Intl.DateTimeFormat('en-CA', { timeZone: TZ }).format(new Date()) // YYYY-MM-DD
+  const [tyear, tmonth, tday] = todayStr.split('-').map(Number)
+  const today = new Date(tyear, tmonth - 1, tday) // meia-noite local sem offset
   const todayIso = today.toISOString()
-  const todayStr = today.toISOString().slice(0, 10)
 
   const last7Start = new Date(today)
   last7Start.setDate(last7Start.getDate() - 7)
@@ -191,7 +190,7 @@ export default async function BriefingPage() {
   const urgentActions = [...overdueActions, ...todayActions] as ActionItem[]
   const pendingActions = (allActions ?? []) as ActionItem[]
 
-  const dateLabel = today.toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' })
+  const dateLabel = new Date().toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long', timeZone: TZ })
 
   const todayEvents = ((upcomingEvents ?? []) as any[]).filter(e =>
     new Date(e.start_at) <= new Date(new Date().setHours(23, 59, 59, 999))
@@ -243,14 +242,17 @@ export default async function BriefingPage() {
       })),
   ].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()).slice(0, 15)
 
-  const aiBriefing = profileId ? await generateAIBriefing(profileId, {
-    firstName,
-    todayMeetings: todayMeetings ?? [],
-    urgentActions: todayActions,
-    overdueActions,
-    upcomingEvents: todayEvents,
-    todayDateLabel: dateLabel,
-  }) : ''
+  const aiBriefing = profileId
+    ? (await fetchAIBriefing(
+        profileId,
+        firstName,
+        todayMeetings ?? [],
+        todayActions,
+        overdueActions,
+        todayEvents,
+        dateLabel,
+      )) ?? ''
+    : ''
 
   const todayCount = todayMeetings?.length ?? 0
 
@@ -262,7 +264,7 @@ export default async function BriefingPage() {
   const monthMinRem = Math.floor((monthSecs % 3600) / 60)
   const lastMonthSecs = (lastMonthMeetingsData ?? []).reduce((acc, m) => acc + ((m as any).duration_seconds ?? 0), 0)
   const diffHours = monthHours - Math.floor(lastMonthSecs / 3600)
-  const monthLabel = today.toLocaleDateString('pt-BR', { month: 'long' })
+  const monthLabel = new Date().toLocaleDateString('pt-BR', { month: 'long', timeZone: TZ })
 
   return (
     <div className="p-8 max-w-4xl mx-auto">
