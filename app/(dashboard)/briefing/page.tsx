@@ -1,7 +1,6 @@
 export const dynamic = 'force-dynamic'
 
 import { createClient } from '@/lib/supabase/server'
-import { unstable_cache } from 'next/cache'
 import Anthropic from '@anthropic-ai/sdk'
 import Link from 'next/link'
 import UpcomingMeetings from '@/components/UpcomingMeetings'
@@ -25,19 +24,20 @@ function getDueStatus(dueDateStr: string | null, doneAt: string | null) {
   return 'pending'
 }
 
-// Definido no nível do módulo para que o unstable_cache funcione corretamente em produção
-const fetchAIBriefing = unstable_cache(
-  async (
-    profileId: string,
-    firstName: string,
-    todayMeetings: any[],
-    urgentActions: any[],
-    overdueActions: any[],
-    upcomingEvents: any[],
-    todayDateLabel: string,
-  ): Promise<string | null> => {
+async function fetchAIBriefing(
+  firstName: string,
+  todayMeetings: any[],
+  urgentActions: any[],
+  overdueActions: any[],
+  upcomingEvents: any[],
+  todayDateLabel: string,
+): Promise<string> {
+  try {
     const apiKey = process.env.ANTHROPIC_API_KEY
-    if (!apiKey) return null
+    if (!apiKey) {
+      console.error('[briefing] ANTHROPIC_API_KEY não configurada')
+      return ''
+    }
 
     const client = new Anthropic({ apiKey })
 
@@ -86,11 +86,12 @@ Use tom profissional mas direto, sem floreios. Não use bullet points. Não use 
     })
 
     const content = msg.content[0]
-    return content.type === 'text' ? content.text : null
-  },
-  ['ai-briefing'],
-  { revalidate: 3600 }
-)
+    return content.type === 'text' ? content.text : ''
+  } catch (err) {
+    console.error('[briefing] Erro ao gerar briefing:', err)
+    return ''
+  }
+}
 
 export default async function BriefingPage() {
   const supabase = await createClient()
@@ -242,17 +243,14 @@ export default async function BriefingPage() {
       })),
   ].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()).slice(0, 15)
 
-  const aiBriefing = profileId
-    ? (await fetchAIBriefing(
-        profileId,
-        firstName,
-        todayMeetings ?? [],
-        todayActions,
-        overdueActions,
-        todayEvents,
-        dateLabel,
-      )) ?? ''
-    : ''
+  const aiBriefing = await fetchAIBriefing(
+    firstName,
+    todayMeetings ?? [],
+    todayActions,
+    overdueActions,
+    todayEvents,
+    dateLabel,
+  )
 
   const todayCount = todayMeetings?.length ?? 0
 
