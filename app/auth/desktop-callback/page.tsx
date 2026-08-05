@@ -13,7 +13,15 @@ function DesktopCallback() {
       setStatus('error')
       return
     }
-    window.location.href = `crossmeeting://login-callback?code=${encodeURIComponent(code)}`
+    const encodedCode = encodeURIComponent(code)
+    // Android Chrome bloqueia custom schemes (crossmeeting://) em redirecionamentos web.
+    // O formato intent:// é suportado pelo Chrome Android e abre o app diretamente.
+    const isAndroid = /Android/i.test(navigator.userAgent)
+    if (isAndroid) {
+      window.location.href = `intent://login-callback?code=${encodedCode}#Intent;scheme=crossmeeting;package=ai.crossmeeting.app;end`
+    } else {
+      window.location.href = `crossmeeting://login-callback?code=${encodedCode}`
+    }
     setTimeout(() => setStatus('done'), 1000)
   }, [params])
 
