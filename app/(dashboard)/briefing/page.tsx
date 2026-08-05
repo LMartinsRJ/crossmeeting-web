@@ -1,10 +1,10 @@
 export const dynamic = 'force-dynamic'
 
 import { createClient } from '@/lib/supabase/server'
-import Anthropic from '@anthropic-ai/sdk'
 import Link from 'next/link'
 import UpcomingMeetings from '@/components/UpcomingMeetings'
 import BriefingActions from '@/components/BriefingActions'
+import BriefingText from '@/components/BriefingText'
 import type { ActionItem } from '@/components/ActionsClient'
 import CalendarSyncTrigger from '@/components/CalendarSyncTrigger'
 import { parseEnhancementSummary } from '@/lib/parsers'
@@ -24,74 +24,6 @@ function getDueStatus(dueDateStr: string | null, doneAt: string | null) {
   return 'pending'
 }
 
-async function fetchAIBriefing(
-  firstName: string,
-  todayMeetings: any[],
-  urgentActions: any[],
-  overdueActions: any[],
-  upcomingEvents: any[],
-  todayDateLabel: string,
-): Promise<string> {
-  try {
-    const apiKey = process.env.ANTHROPIC_API_KEY
-    if (!apiKey) {
-      console.error('[briefing] ANTHROPIC_API_KEY não configurada')
-      return ''
-    }
-
-    const client = new Anthropic({ apiKey })
-
-    const eventsText = upcomingEvents.slice(0, 3)
-      .map(e => `- ${e.title} às ${new Date(e.start_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', timeZone: 'America/Sao_Paulo' })}`)
-      .join('\n') || 'Nenhum evento agendado para hoje.'
-
-    const overdueText = overdueActions.slice(0, 5)
-      .map(a => `- "${a.text}" (responsável: ${a.owner || 'não definido'}, venceu ${a.due_date})`)
-      .join('\n') || 'Nenhuma ação em atraso.'
-
-    const urgentText = urgentActions.slice(0, 5)
-      .map(a => `- "${a.text}" (responsável: ${a.owner || 'não definido'})`)
-      .join('\n') || 'Nenhuma ação vence hoje.'
-
-    const meetingsText = todayMeetings.length > 0
-      ? todayMeetings.map(m => `- ${m.title}`).join('\n')
-      : 'Nenhuma reunião gravada hoje ainda.'
-
-    const msg = await client.messages.create({
-      model: process.env.CLAUDE_SONNET_MODEL ?? 'claude-sonnet-4-6',
-      max_tokens: 600,
-      messages: [{
-        role: 'user',
-        content: `Você é um assistente executivo do Crossmeeting. Escreva um briefing matinal pessoal e direto para ${firstName}. Hoje é ${todayDateLabel}.
-
-Agenda de hoje:
-${eventsText}
-
-Reuniões gravadas hoje:
-${meetingsText}
-
-Ações em atraso:
-${overdueText}
-
-Ações que vencem hoje:
-${urgentText}
-
-Escreva 3 parágrafos curtos (máx. 3 frases cada) em português brasileiro:
-1. Contexto do dia (agenda + reuniões se houver)
-2. Atenção imediata (atrasos e urgências — seja direto, cite nomes e tarefas)
-3. Foco recomendado para hoje (3 prioridades concretas)
-
-Use tom profissional mas direto, sem floreios. Não use bullet points. Não use saudação. Comece direto no contexto.`,
-      }],
-    })
-
-    const content = msg.content[0]
-    return content.type === 'text' ? content.text : ''
-  } catch (err) {
-    console.error('[briefing] Erro ao gerar briefing:', err)
-    return ''
-  }
-}
 
 export default async function BriefingPage() {
   const supabase = await createClient()
@@ -243,15 +175,6 @@ export default async function BriefingPage() {
       })),
   ].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()).slice(0, 15)
 
-  const aiBriefing = await fetchAIBriefing(
-    firstName,
-    todayMeetings ?? [],
-    todayActions,
-    overdueActions,
-    todayEvents,
-    dateLabel,
-  )
-
   const todayCount = todayMeetings?.length ?? 0
 
   const monthMeetingCount = thisMonthMeetings?.length ?? 0
@@ -274,19 +197,15 @@ export default async function BriefingPage() {
         <p className="text-sm text-neutral-500 mt-1 capitalize">{dateLabel}</p>
       </div>
 
-      {/* ── NOVO: Briefing de IA ── */}
-      {aiBriefing && (
-        <div className="mb-6">
-          <h2 className="text-xs font-semibold text-neutral-500 uppercase tracking-wider mb-3">Briefing do dia</h2>
-          <div className="bg-white/[0.03] border border-white/[0.06] rounded-2xl p-6">
-            <div className="text-sm text-neutral-300 leading-relaxed space-y-3">
-              {aiBriefing.split('\n\n').filter(Boolean).map((para, i) => (
-                <p key={i}>{para}</p>
-              ))}
-            </div>
-          </div>
-        </div>
-      )}
+      {/* ── Briefing de IA (carregado client-side para evitar timeout no Vercel) ── */}
+      <BriefingText
+        firstName={firstName}
+        todayMeetings={todayMeetings ?? []}
+        todayActions={todayActions}
+        overdueActions={overdueActions}
+        todayEvents={todayEvents}
+        dateLabel={dateLabel}
+      />
 
       {/* ── NOVO: Métricas de urgência ── */}
       {urgentActions.length > 0 && (
